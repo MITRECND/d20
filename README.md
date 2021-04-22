@@ -1,5 +1,7 @@
 # d20 #
 
+D20 is an asynchronous framework that attempts to aid analysts in dissecting a binary (or other file) in a non-serial manner. This means malicious programs that exhibit complex workflows, which might not be parseable in an automated fashion can be looked at in an automated fashion using D20.
+
 ## Development ##
 
 Code base developed against Python 3.6, tested with Python 3.6 - 3.9.
