@@ -1,0 +1,80 @@
+Introduction
+============
+
+
+Overview
+----------
+
+D20 is an asynchronous framework that attempts to aid analysts in dissecting a binary (or other file) in a non-serial manner.
+This means malicious programs that exhibit complex workflows, which might not be parseable in an automated fashion can be looked at in an automated fashion using D20.
+
+
+Design
+------
+
+D20 consists of many pieces and concepts that get pulled together:
+
+- Objects
+- Facts
+- Players
+- Backstories
+- NPCS
+- Actions
+- Screens
+
+Objects
+~~~~~~~
+
+    An object in D20 is just a blob of data.
+    An executable file, for example, is an object.
+    When launching D20, it expects a file to analyze which will become
+    object 0.
+    Subsequent files are given incremental ids.
+
+Facts
+~~~~~
+
+    A '*fact*' in D20 is a piece of information of a given type that describes an object or another fact.
+    An example of this is the md5 of a file.
+    Facts are represented in D20 as classes and are extensible allowing custom fact classes to be created to ensure flexibility.
+
+Hypotheses
+~~~~~~~~~~
+
+    A '*hyp*' in D20 is like a fact, but is a piece of information that is not guaranteed to be true.
+    Recognition of a technique, as an example, could be considered a hyp if it is not absolutely certain to be true.
+    When in doubt, it's probably a hyp.
+
+
+NPCs
+~~~~
+
+    NPCs are unconditionally called when a new object is introduced into the framework and should produce any facts they can to further the progress of the framework.
+    They are considerably simpler than Players (below) and should, ideally, only accomplish simplistic tasks (e.g., hash the object).
+
+Players
+~~~~~~~
+
+    Players are classes/components that register interest in types of facts (e.g., md5, sha1, etc) which can then using the fact they hit on and any other information available in the framework produce more facts or objects to further breakdown a binary or problem.
+
+
+BackStories
+~~~~~~~~~~~
+
+    BackStories are structured like Players, functionality-wise but are run on startup with seeded facts. This allows D20 to run without an initial binary, enabling workflows that might reach out via API to acquire one.
+
+
+Actions
+~~~~~~~
+
+    Actions are packages/classes which contain common code that can be reused.
+    They are python modules that will at the least contain one class.
+    The design of these classes are left up to the authors so documentation for individual actions should be referenced before using them.
+    Actions are directly available as imports for D20 components.
+
+Screens
+~~~~~~~
+
+    Screens are classes which take the final state of a run and output it in a desired manner.
+    Screens are pluggable allowing you to customize how you want the data to be presented.
+    By default, d20 comes with '*json*' and '*yaml*' screens which output into those respective syntaxes.

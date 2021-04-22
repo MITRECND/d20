@@ -1,0 +1,4 @@
+D20 requires the following non-python dependencies to run properly:
+
+ssdeep:
+    - https://ssdeep-project.github.io/ssdeep/index.html

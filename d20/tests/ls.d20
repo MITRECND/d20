@@ -1,0 +1,124 @@
+engine: 0.1.1
+facts:
+  columns:
+    md5:
+      column:
+      - _childFacts_: !!set {}
+        _childHyps_: !!set {}
+        _childObjects_: !!set {}
+        _class_: MD5HashFact
+        _created_: 1543511856.836861
+        _creator_: HashNPC
+        _id_: 0
+        _parentFacts_: !!set {}
+        _parentHyps_: !!set {}
+        _parentObjects_: !!set {0: null}
+        _tainted_: false
+        value: a78c13d806e594dc4014d145d689f23d
+      type: md5
+    mimetype:
+      column:
+      - _childFacts_: !!set {}
+        _childHyps_: !!set {}
+        _childObjects_: !!set {}
+        _class_: MimeTypeFact
+        _created_: 1543511856.838429
+        _creator_: MimeTypeNPC
+        _id_: 1
+        _parentFacts_: !!set {}
+        _parentHyps_: !!set {}
+        _parentObjects_: !!set {0: null}
+        _tainted_: false
+        filetype: ELF 64-bit LSB executable, x86-64, version 1 (SYSV)
+        mimetype: application/x-executable
+      type: mimetype
+    sha1:
+      column:
+      - _childFacts_: !!set {}
+        _childHyps_: !!set {}
+        _childObjects_: !!set {}
+        _class_: SHA1HashFact
+        _created_: 1543511856.847779
+        _creator_: HashNPC
+        _id_: 2
+        _parentFacts_: !!set {}
+        _parentHyps_: !!set {}
+        _parentObjects_: !!set {0: null}
+        _tainted_: false
+        value: a0990e80f16168677680b3d6fc55e01bc53c1631
+      type: sha1
+    sha256:
+      column:
+      - _childFacts_: !!set {}
+        _childHyps_: !!set {}
+        _childObjects_: !!set {}
+        _class_: SHA256HashFact
+        _created_: 1543511856.8598175
+        _creator_: HashNPC
+        _id_: 3
+        _parentFacts_: !!set {}
+        _parentHyps_: !!set {}
+        _parentObjects_: !!set {0: null}
+        _tainted_: false
+        value: 77e348ce10471cf7c335a2bd5897ac858f9a2d1e8fdd419b9cf78cc0e64b38a0
+      type: sha256
+    ssdeep:
+      column:
+      - _childFacts_: !!set {}
+        _childHyps_: !!set {}
+        _childObjects_: !!set {}
+        _class_: SSDeepHashFact
+        _created_: 1543511856.8781607
+        _creator_: HashNPC
+        _id_: 4
+        _parentFacts_: !!set {}
+        _parentHyps_: !!set {}
+        _parentObjects_: !!set {0: null}
+        _tainted_: false
+        value: 3072:0i9QRqb4Wch5gkqdR212jmg62/ovsC3C:rWRqkTngXfY4wkC3
+      type: ssdeep
+  ids: 5
+hyps:
+  columns:
+    mimetype:
+      column:
+      - _childFacts_: !!set {}
+        _childHyps_: !!set {}
+        _childObjects_: !!set {}
+        _class_: MimeTypeFact
+        _created_: 1543511856.838429
+        _creator_: MimeTypeNPC
+        _id_: 0
+        _parentFacts_: !!set {}
+        _parentHyps_: !!set {}
+        _parentObjects_: !!set {0: null}
+        _tainted_: true
+        filetype: ELF 64-bit LSB executable, x86-64, version 1 (SYSV)
+        mimetype: application/x-executable
+      type: mimetype
+  ids: 1
+npcs:
+- id: 0
+  memory: {}
+  name: MimeTypeNPC
+- id: 1
+  memory: {}
+  name: HashNPC
+objects:
+- _childFacts_: !!set {0: null, 1: null, 2: null, 3: null, 4: null}
+  _childHyps_: !!set {0: null}
+  _childObjects_: !!set {}
+  _created_: 1543511856.8338661
+  _creator_: GameMaster
+  _parentFacts_: !!set {}
+  _parentHyps_: !!set {}
+  _parentObjects_: !!set {}
+  # Data has been removed and replaced with "Removed". Original was
+  # /usr/bin/ls from a CentOS 7.5.1804 system
+  data: UmVtb3ZlZA==
+  hash: 77e348ce10471cf7c335a2bd5897ac858f9a2d1e8fdd419b9cf78cc0e64b38a0
+  id: 0
+  metadata: {filename: /usr/bin/ls}
+players: []
+temp_base: /tmp/d20-1543511856
+backstories: []
