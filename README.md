@@ -1,146 +1,22 @@
 # d20 #
 
-D20 is an asynchronous framework that attempts to aid analysts in dissecting a binary (or other file) in a non-serial manner. This means malicious programs that exhibit complex workflows, which might not be parseable in an automated fashion can be looked at in an automated fashion using D20.
+D20 is an asynchronous framework that attempts to aid analysts in dissecting a binary (or other file) in a non-serial manner. This means malicious programs that exhibit complex workflows, which might not be parsable in a serialized fashion can be looked at in an automated fashion using D20.
 
-## Development ##
+D20's core approach to gaining deep insights and overcoming the problems of serialized workflows is based on the [Blackboard System](https://en.wikipedia.org/wiki/Blackboard_system). Three components comprise the Blackboard within D20:
 
-Code base developed against Python 3.6, tested with Python 3.6 - 3.9.
+* Object Table
+* Fact Table
+* Hypothesis Table
 
-To develop, setup a virtualenv (or not) and do:
+When you run D20 against a file, it is entered into the Object Table as Object 0. All available [NPCs](https://d20-framework.readthedocs.io/en/latest/authoring/npcs.html) will then execute against Object 0 and apply their expertise to add Facts to the Fact table or Hyps to the Hypothesis Table. As additional objects are uncovered (say...unzipping Object 0), they can be added as additional objects to the table and are treated the same way with all NPCs executing against it. If a block of data is added to the object table that is identical to an existing object, it will not be duplicated, but a relationship will be created to reflect it.
 
-`pip install -e .`
+The Fact and Hypothesis tables are effectively identical. The only difference is that Fact objects added to the Hypothesis table are marked "tainted" so you know it is a best-guess based on the information at hand. Each column in the Fact Table is of a specific [FactType](https://d20-framework.readthedocs.io/en/latest/authoring/facts.html). When a Fact of a given type is added, it will be added to the associated column (like a new single-cell row).
 
-This will install the package in development mode allowing changes to be made.
+Any [Player](https://d20-framework.readthedocs.io/en/latest/authoring/players.html) registered with the system that has an interest in the Fact that is added will get cloned and instructed to use that Fact to perform additional analysis, adding more Facts to the table. More Facts are added, and more players are cloned and executed. Some Players can even put themselves into a WAITING state if they are looking for a specific Fact to hit the Fact Table that it needs to perform additional steps (ex: identifying an encrypted blob and waiting for a decryption key to be added to the table).
 
-## Installation ##
+This process continues until all Players have either finished adding Facts, or are sitting in a WAITING state and will not get any additional Facts to work with. The game will end at this point. The Game Master will execute the chosen [Screen](https://d20-framework.readthedocs.io/en/latest/authoring/screens.html) to look at all of the information available in the system (from all three table), and present the data. It can print the data in a certain format, save it to a file, generate a host of files with information in them, push the data to a database, pull data from another system and combine it with the results to do something else, etc. What happens to the results at this point is really up to your creativity.
 
-To install the code regularly just do:
-
-`pip install .`
-
-## Usage ##
-
-To run the code, after installing via pip, `d20` should be in your path:
-
-```text
-> d20 --help
-usage: d20 [-h]
-           [-f FILE | --backstory-facts BACKSTORY_FACTS | --backstory-facts-path BACKSTORY_FACTS_PATH]
-           [-l] [-i INFO_PLAYER] [-n] [-s] [--list-screens] [--version]
-           [-c CONFIG] [--extra-players [EXTRA_PLAYERS [EXTRA_PLAYERS ...]]]
-           [--extra-npcs [EXTRA_NPCS [EXTRA_NPCS ...]]]
-           [--extra-backstories [EXTRA_BACKSTORIES [EXTRA_BACKSTORIES ...]]]
-           [--extra-actions [EXTRA_ACTIONS [EXTRA_ACTIONS ...]]]
-           [--extra-facts [EXTRA_FACTS [EXTRA_FACTS ...]]]
-           [--extra-screens [EXTRA_SCREENS [EXTRA_SCREENS ...]]]
-           [--use-screen USE_SCREEN] [-t TEMPORARY]
-           [--dump-objects DUMP_OBJECTS_DIRECTORY] [--save SAVE_FILE]
-           [--load LOAD_FILE] [--debug] [-v]
-           [--generate-config-file CONFIG_FILE_PATH]
-
-Roll the dice
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -f FILE, --file FILE  Input file to process
-  --backstory-facts BACKSTORY_FACTS
-                        A yaml/json string to provide to backtories
-  --backstory-facts-path BACKSTORY_FACTS_PATH
-                        A path to a yaml/json file with facts to present to
-                        backstories
-  -c CONFIG, --config CONFIG
-                        Path to a configuration file that will pass options to
-                        players, screens and npcs
-  --extra-players [EXTRA_PLAYERS [EXTRA_PLAYERS ...]]
-                        Directories where extra players may be found
-  --extra-npcs [EXTRA_NPCS [EXTRA_NPCS ...]]
-                        Directories where extra npcs may be found
-  --extra-backstories [EXTRA_BACKSTORIES [EXTRA_BACKSTORIES ...]]
-                        Directories where extra backstories may be found
-  --extra-actions [EXTRA_ACTIONS [EXTRA_ACTIONS ...]]
-                        Directories where extra actions may be found
-  --extra-facts [EXTRA_FACTS [EXTRA_FACTS ...]]
-                        Directories where extra facts may be found
-  --extra-screens [EXTRA_SCREENS [EXTRA_SCREENS ...]]
-                        Directories where extra game screens may be found
-  --use-screen USE_SCREEN
-                        What screen to use to present data after game has
-                        completed
-  -t TEMPORARY, --temporary TEMPORARY
-                        Base directory to store temporary contents, Defaults
-                        to /tmp/d20-<timestamp>/
-  --dump-objects DUMP_OBJECTS_DIRECTORY
-                        On program exit, dump all objects to the given
-                        directory
-  --save SAVE_FILE      Location/file to save state
-  --load LOAD_FILE      Location/file to restore state
-  --debug               Enable debugging output
-  -v, --verbose         Enable verbose output
-  --generate-config-file CONFIG_FILE_PATH
-                        Walk entities and generate a default configuration
-                        file
-
-Informational:
-  -l, --list-players    Show available players
-  -i INFO_PLAYER, --info-player INFO_PLAYER
-                        Show information about a specific player
-  -n, --list-npcs       Show available npcs
-  -s, --list-backstories
-                        Show available backstories
-  --list-screens        Show available screens
-  --version             Print version and exit
-
-```
-
-## Components ##
-
-d20 consists of multiple components and pieces to actually operate. The high
-level components consist of
-
-* Players
-* NPCs
-* BackStories
-* Actions
-* Manual
-  * Facts
-* Screens
-
-### Manual ###
-
-The Manual is the internal piece of d20 that is used to run the game
-
-### Players ###
-
-A 'player' is a component that will attempt to dissect an object or objects
-based on facts that have been presented to it
-
-### NPCs ###
-
-An NPC is a component that automatically runs on an object when it is created
-to create some basic metadata to start the game. These components have minimal
-logic and are intended to kick of the scenario to give the players enough
-information to get going.
-
-### BackStories ###
-
-A BackStory is a component that can be run at the beginning of the game with pre-seeded facts to enable object-less operation. This allows one to programmatically kick of D20 using BackStories to obtain binaries dynamically.
-
-### Actions ###
-
-Actions are functions or code that might be often reused. Actions must be
-proper python packages and must follow any development guidance that applies
-to the core of d20.
-
-### Screens ###
-
-Screens are used to take the gained knowledge from the game and do something
-with it. It can be output to the screen, sent to another system, etc. When run,
-a screen is selected as an argument.
-
-### Feature Integration ###
-
-D20 can be expanded with new features by creating your own Players, NPCs,
-Facts, Actions, and Screens.
+For more detailed information, check [readthedocs](https://d20-framework.readthedocs.io/)
 
 Approved for Public Release; Distribution Unlimited. Public Release Case Number 21-0601
 
