@@ -1,5 +1,5 @@
 name: Run tox tests
-on: [push, pull_request]
+on: [push]
 jobs:
   tests:
     name: Run Tests
