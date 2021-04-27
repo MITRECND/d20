@@ -34,7 +34,7 @@ class TestShellFunctions(unittest.TestCase):
 
     def testTimeString(self):
         ts = 1543509554.0126088
-        self.assertEqual(tsTodt(ts), '2018-11-29 11:39:14.012609')
+        self.assertEqual(tsTodt(ts), '2018-11-29 16:39:14.012609 UTC')
 
 
 class TestShell(unittest.TestCase):

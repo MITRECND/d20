@@ -18,8 +18,8 @@ from d20.Manual.BattleMap import FileObject
 
 
 def tsTodt(input):
-    dt = datetime.datetime.fromtimestamp(input).\
-        strftime('%Y-%m-%d %H:%M:%S.%f')
+    dt = datetime.datetime.utcfromtimestamp(input).\
+        strftime('%Y-%m-%d %H:%M:%S.%f UTC')
     return dt
 
 
