@@ -18,6 +18,8 @@ This process continues until all Players have either finished adding Facts, or a
 
 For more detailed information, check [readthedocs](https://d20-framework.readthedocs.io/)
 
+If you'd like to see some code that enables D20 to do things, you can find a corpus of capabilities in the [D20-Extras](https://github.com/MITRECND/d20-extras) repository.
+
 Approved for Public Release; Distribution Unlimited. Public Release Case Number 21-0601
 
 &copy;2021 The MITRE Corporation. ALL RIGHTS RESERVED.
