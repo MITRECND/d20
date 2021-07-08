@@ -10,9 +10,9 @@ from d20.Manual.Config import Configuration
 from d20.Manual.GameMaster import GameMaster
 from d20.Manual.Shell import (tsTodt,
                               askPrompt,
-                              list_objects,
-                              list_facts,
-                              list_hyps,
+                              listObjects,
+                              listFacts,
+                              listHyps,
                               ShellCmd,
                               ObjectCmd,
                               FactCmd,
@@ -56,9 +56,9 @@ class TestShell(unittest.TestCase):
     def testListFunctions(self):
         with mock.patch("d20.Manual.Shell.prettyTable",
                         return_value="Test"):
-            self.assertEqual(list_objects(self.gm), "\nTest\n")
-            self.assertEqual(list_facts(self.gm), "\nTest\n")
-            self.assertEqual(list_hyps(self.gm), "\nTest\n")
+            self.assertEqual(listObjects(self.gm), "\nTest\n")
+            self.assertEqual(listFacts(self.gm), "\nTest\n")
+            self.assertEqual(listHyps(self.gm), "\nTest\n")
 
     def testBaseCmdMisc(self):
         shell = ShellCmd(self.gm)
