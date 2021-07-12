@@ -263,7 +263,7 @@ class GameMaster(object):
         backstories = verifyBackStories(
             self.extra_backstories, self.Config)
 
-        if load and self.save_state['backstories'] is not None:
+        if load and self.save_state.get('backstories', None) is not None:
             for saved_backstory in self.save_state['backstories']:
                 loaded_backstory = None
                 for backstory in backstories:
@@ -462,6 +462,9 @@ class GameMaster(object):
         # Save Object List
         save_state['objects'] = \
             [obj.save() for obj in self.objects]
+
+        save_state['backstories'] = \
+            [bs.save() for bs in self.backstories]
 
         save_state['facts'] = self.facts.save()
         save_state['hyps'] = self.hyps.save()
