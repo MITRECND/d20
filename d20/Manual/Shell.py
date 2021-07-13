@@ -1,5 +1,4 @@
 import sys
-import shlex
 import cmd
 import collections
 import datetime
@@ -61,14 +60,6 @@ def prettyList(data, debug=False):
     return table
 
 
-def parse_args(arg_string):
-    try:
-        args = shlex.split(arg_string)
-        return args
-    except Exception:
-        return None
-
-
 def askPrompt(prompt="Are you sure?"):
     while 1:
         resp = input("%s (y/n) " % (prompt))
@@ -80,7 +71,7 @@ def askPrompt(prompt="Are you sure?"):
             print("Invalid Response")
 
 
-def list_objects(gm):
+def listObjects(gm):
     objectMetadata = collections.namedtuple('objectMetadata',
                                             ['id',
                                              'creator',
@@ -100,7 +91,7 @@ def list_objects(gm):
         return "No objects found\n"
 
 
-def list_facts(gm):
+def listFacts(gm):
     factMetadata = collections.namedtuple('factMetadata',
                                           ['id',
                                            'type',
@@ -121,7 +112,7 @@ def list_facts(gm):
         return "No facts found\n"
 
 
-def list_hyps(gm):
+def listHyps(gm):
     hypMetadata = collections.namedtuple('hypMetadata',
                                          ['id',
                                           'type',
@@ -142,7 +133,7 @@ def list_hyps(gm):
         return "No hyps found\n"
 
 
-def create_objects_list(typ, gm, source):
+def createObjectsList(typ, gm, source):
     objectMetadata = collections.namedtuple('objectMetadata',
                                             ['id',
                                              'creator',
@@ -162,7 +153,7 @@ def create_objects_list(typ, gm, source):
         return "None\n"
 
 
-def create_facts_list(typ, gm, source):
+def createFactsList(typ, gm, source):
     factMetadata = collections.namedtuple('factMetadata',
                                           ['id',
                                            'type',
@@ -183,7 +174,7 @@ def create_facts_list(typ, gm, source):
         return "None\n"
 
 
-def create_hyps_list(typ, gm, source):
+def createHypsList(typ, gm, source):
     hypMetadata = collections.namedtuple('hypMetadata',
                                          ['id',
                                           'type',
@@ -256,11 +247,11 @@ class BaseCmd(cmd.Cmd):
         Syntax: list objects|facts|hyps
         """
         if arg == 'objects':
-            output = list_objects(self.gm)
+            output = listObjects(self.gm)
         elif arg == 'facts':
-            output = list_facts(self.gm)
+            output = listFacts(self.gm)
         elif arg == 'hyps':
-            output = list_hyps(self.gm)
+            output = listHyps(self.gm)
         else:
             sys.stdout.write("list objects|facts|hyps\n")
             return
@@ -491,25 +482,25 @@ class ObjectCmd(BaseCmd):
     def do_parents(self, arg):
         """Print out parents of this object"""
 
-        parentObjects = create_objects_list('parent', self.gm, self.obj)
+        parentObjects = createObjectsList('parent', self.gm, self.obj)
         sys.stdout.write("Parent Objects:\n%s\n" % (parentObjects))
 
-        parentFacts = create_facts_list('parent', self.gm, self.obj)
+        parentFacts = createFactsList('parent', self.gm, self.obj)
         sys.stdout.write("Parent Facts:\n%s\n" % (parentFacts))
 
-        parentHyps = create_hyps_list('parent', self.gm, self.obj)
+        parentHyps = createHypsList('parent', self.gm, self.obj)
         sys.stdout.write("Parent Hyps: \n%s\n" % (parentHyps))
 
     def do_children(self, args):
         """Print out children of this object"""
 
-        childObjects = create_objects_list('child', self.gm, self.obj)
+        childObjects = createObjectsList('child', self.gm, self.obj)
         sys.stdout.write("Child Objects:\n%s\n" % (childObjects))
 
-        childFacts = create_facts_list('child', self.gm, self.obj)
+        childFacts = createFactsList('child', self.gm, self.obj)
         sys.stdout.write("Child Facts:\n%s\n" % (childFacts))
 
-        childHyps = create_hyps_list('child', self.gm, self.obj)
+        childHyps = createHypsList('child', self.gm, self.obj)
         sys.stdout.write("Child Hyps:\n%s\n" % (childHyps))
 
     def _find_items(self, data, children):
@@ -597,25 +588,25 @@ class FactHypBaseCmd(BaseCmd):
     def do_parents(self, arg):
         """Print out parents of this item"""
 
-        parentObjects = create_objects_list('parent', self.gm, self.item)
+        parentObjects = createObjectsList('parent', self.gm, self.item)
         sys.stdout.write("Parent Objects:\n%s\n" % (parentObjects))
 
-        parentFacts = create_facts_list('parent', self.gm, self.item)
+        parentFacts = createFactsList('parent', self.gm, self.item)
         sys.stdout.write("Parent Facts:\n%s\n" % (parentFacts))
 
-        parentHyps = create_hyps_list('parent', self.gm, self.item)
+        parentHyps = createHypsList('parent', self.gm, self.item)
         sys.stdout.write("Parent Hyps:\n%s\n" % (parentHyps))
 
     def do_children(self, args):
         """Print out children of this item"""
 
-        childObjects = create_objects_list('child', self.gm, self.item)
+        childObjects = createObjectsList('child', self.gm, self.item)
         sys.stdout.write("Child Objects:\n%s\n" % (childObjects))
 
-        childFacts = create_facts_list('child', self.gm, self.item)
+        childFacts = createFactsList('child', self.gm, self.item)
         sys.stdout.write("Child Facts:\n%s\n" % (childFacts))
 
-        childHyps = create_hyps_list('child', self.gm, self.item)
+        childHyps = createHypsList('child', self.gm, self.item)
         sys.stdout.write("Child Hyps:\n%s\n" % (childHyps))
 
     def do_fields(self, arg):
