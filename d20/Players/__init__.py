@@ -5,22 +5,28 @@ from d20.Manual.Registration import RegistrationForm
 from d20.Manual.Utils import loadExtras
 from d20.version import GAME_ENGINE_VERSION
 
-from typing import Dict, Set
+from typing import List, Dict, Set, TYPE_CHECKING, TypeVar, Type, Optional
+if TYPE_CHECKING:
+    from d20.Manual.Logger import Logger
+    from d20.Manual.Config import Configuration
+    Tplayer = TypeVar('Tplayer', bound='Player')
 
-LOADED: Set = set()
-PLAYERS: Dict = dict()
-LOGGER = logging.getLogger(__name__)
+LOADED: Set[str] = set()
+PLAYERS: Dict[str, 'Player'] = dict()
+LOGGER: Logger = logging.getLogger(__name__)
 
 
 class Player:
-    def __init__(self, name, cls, registration):
-        self.name = name
-        self.cls = cls
-        self.registration = registration
-        self.config = None
+    def __init__(self, name: str, cls: Type[Tplayer],
+                 registration: RegistrationForm):
+        self.name: str = name
+        self.cls: Type[Tplayer] = cls
+        self.registration: RegistrationForm = registration
+        self.config: Optional[Configuration] = None
 
 
-def verifyPlayers(extra_players, config):
+def verifyPlayers(extra_players: List[str],
+                  config: Configuration) -> List[Player]:
     """Load and verify players
 
         This function finds and loads player from on-disk for use
@@ -50,14 +56,14 @@ def verifyPlayers(extra_players, config):
     return list(PLAYERS.values())
 
 
-def loadPlayer(player_class, **kwargs):
-    reg = RegistrationForm(**kwargs)
-    ev = GAME_ENGINE_VERSION
+def loadPlayer(player_class: Type[Tplayer], **kwargs: str) -> None:
+    reg: RegistrationForm = RegistrationForm(**kwargs)
+    ev: str = GAME_ENGINE_VERSION
     if reg.engine_version > ev:
         raise ValueError("Player %s expects version %s or newer"
                          % (reg.name, reg.engine_version))
     global PLAYERS
-    clsname = player_class.__qualname__
+    clsname: str = player_class.__qualname__
     if clsname in PLAYERS:
         raise ValueError("Player with class name %s already registered"
                          % (clsname))
@@ -65,9 +71,9 @@ def loadPlayer(player_class, **kwargs):
         PLAYERS[clsname] = Player(reg.name, player_class, reg)
 
 
-def loadPlayers(extra_players):
+def loadPlayers(extra_players: List[str]) -> Dict[str, Player]:
     # Get this files directory
-    paths = [os.path.dirname(os.path.abspath(__file__))]
+    paths: List[str] = [os.path.dirname(os.path.abspath(__file__))]
     paths.extend(extra_players)
 
     # Players will load via decorator invocation
