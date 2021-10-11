@@ -13,7 +13,16 @@ from .Fields import FactField
 from d20.Manual.Logger import logging
 from d20.Manual.Utils import loadExtras
 
-LOGGER = logging.getLogger(__name__)
+from typing import Any, List, Dict, Union, TYPE_CHECKING, Iterable, Tuple, OrderedDict, Type, TypeVar
+if TYPE_CHECKING:
+    from d20.Players import Player
+    from d20.NPCS import NPC
+    from d20.BackStories import BackStory
+    from d20.Screens import Screen
+    import logging as origLogging 
+    T = TypeVar('T', bound='_FactMeta_')
+
+LOGGER: origLogging.Logger = logging.getLogger(__name__)
 RegisteredFactGroups: Dict[str, Set] = dict()
 RegisteredFacts: Set = set()
 __all__ = ["registerFact",
@@ -26,7 +35,7 @@ __all__ = ["registerFact",
            "loadFacts"]
 
 
-def isFact(arg):
+def isFact(arg: str) -> bool:
     """Function to determine whether a string is a registered fact
     """
     if arg in RegisteredFacts:
@@ -35,7 +44,7 @@ def isFact(arg):
     return False
 
 
-def isFactGroup(arg):
+def isFactGroup(arg: str) -> bool:
     """Function to determine whether a string is a registered fact group
     """
     if arg in RegisteredFactGroups.keys():
@@ -44,7 +53,7 @@ def isFactGroup(arg):
     return False
 
 
-def resolveFacts(*args):
+def resolveFacts(*args: str)-> List[str]:
     """Function to expand and consilidate facts and fact groups
 
         This function takes a list of facts or fact groups as either an
@@ -56,7 +65,7 @@ def resolveFacts(*args):
             isinstance(args[0], Iterable)):
         args = args[0]
 
-    resolved = []
+    resolved: List[str] = []
     for fact in args:
         if fact in RegisteredFactGroups.keys():
             resolved.extend(list(RegisteredFactGroups[fact]))
@@ -68,7 +77,7 @@ def resolveFacts(*args):
     return resolved
 
 
-def registerFact(*args, **kwargs):
+def registerFact(*args: str, **kwargs: str):
     """A decorator for registering a Fact with a given type
 
     Args: fact_groups(str): The interest groups associated with this fact
@@ -88,7 +97,7 @@ def registerFact(*args, **kwargs):
         LOGGER.debug("Registering Fact %s"
                      % (cls.__qualname__))
 
-        existing_class = globals().get(cls.__qualname__, None)
+        existing_class= globals().get(cls.__qualname__, None)
         if existing_class is not None:
             LOGGER.warning("%s already exists" % (cls.__qualname__))
             return existing_class
@@ -132,14 +141,14 @@ class _FactMeta_(type):
     def __prepare__(cls, clsname, bases):
         return OrderedDict()
 
-    def __new__(cls, clsname, bases, dct):
-        fields = [key for (key, val) in dct.items()
+    def __new__(cls: Type[T], clsname: str, bases: Any, dct: Any):
+        fields: List[str] = [key for (key, val) in dct.items()
                   if isinstance(val, FactField)]
 
         for name in fields:
             dct[name].__set_name__(cls, name)
 
-        clsobj = super().__new__(cls, clsname, bases, dict(dct))
+        clsobj: Any = super().__new__(cls, clsname, bases, dict(dct))
 
         # TODO FIXME find a cleaner way to get the methods of the Fact class
         # Worst case we could run this manually, and then copy the produced

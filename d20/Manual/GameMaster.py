@@ -1,3 +1,4 @@
+from argparse import Namespace
 import sys
 import time
 import threading
@@ -11,7 +12,7 @@ from d20.version import (
 from d20.Manual.Exceptions import (PlayerCreationError,
                                    DuplicateObjectError,
                                    TemporaryDirectoryError)
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 from d20.Manual.Trackers import (NPCTracker,
                                  PlayerTracker,
                                  BackStoryTracker,
@@ -34,7 +35,15 @@ from d20.BackStories import (
     resolveBackStoryFacts)
 from d20.Screens import verifyScreens
 
-LOGGER = logging.getLogger(__name__)
+from typing import Any, List, Dict, Union, TYPE_CHECKING, Iterable, Tuple, Type, TypeVar, Optional
+if TYPE_CHECKING:
+    from d20.Players import Player
+    from d20.NPCS import NPC
+    from d20.BackStories import BackStory
+    from d20.Screens import Screen
+    from d20.Manual.Facts import Fact
+
+LOGGER: Logger = logging.getLogger(__name__)
 
 
 class GameMaster(object):
@@ -53,45 +62,45 @@ class GameMaster(object):
             options: A Namespace object (basically args)
             save_state: A dict of saved state information from a previous run
     """
-    def __init__(self, **kwargs):
-        self.backstory_facts = list()
-        self.gameThread = None
-        self.objects = ObjectList()
-        self.facts = FactTable()
-        self.hyps = HypothesisTable()
-        self.players = list()
-        self.npcs = list()
-        self.backstories = list()
-        self.backstory_categories = dict()
-        self.fact_interests = dict()
-        self.hyp_interests = dict()
-        self.screens = dict()
-        self.newGamePlus = False
-        self.gameRunning = False
-        self._gameStartTime = 0
-        self._idleCount = 0
-        self._idleTicks = 100  # 'ticks' i.e., primarly loop cycles
+    def __init__(self, **kwargs) -> None:
+        self.backstory_facts: List[Fact] = list()
+        self.gameThread: Optional[threading.Thread] = None
+        self.objects: ObjectList = ObjectList()
+        self.facts: FactTable = FactTable()
+        self.hyps: HypothesisTable = HypothesisTable()
+        self.players: List[PlayerTracker] = list()
+        self.npcs: List[NPCTracker] = list()
+        self.backstories: List[BackStoryTracker] = list()
+        self.backstory_categories: Dict[str, BackStoryCategoryTracker] = dict()
+        self.fact_interests: Dict = dict()
+        self.hyp_interests: Dict = dict()
+        self.screens: Dict[str, Screen] = dict()
+        self.newGamePlus: bool = False
+        self.gameRunning: bool = False
+        self._gameStartTime: float = 0
+        self._idleCount: int = 0
+        self._idleTicks: int = 100  # 'ticks' i.e., primarly loop cycles
 
-        self.factWaitList = list()
-        self.factStreamList = dict()
-        self.hypStreamList = dict()
-        self.objectStreamList = list()
+        self.factWaitList: List = list()
+        self.factStreamList: Dict = dict()
+        self.hypStreamList: Dict = dict()
+        self.objectStreamList: List = list()
 
-        self.rpc = RPCServer()
+        self.rpc: RPCServer = RPCServer()
         self.registerHandlers()
 
-        self.extra_players = []
-        self.extra_npcs = []
-        self.extra_backstories = []
-        self.extra_screens = []
-        self.Config = Configuration()
-        self.options = None
-        self.save_state = None
+        self.extra_players: List[str] = []
+        self.extra_npcs: List[str] = []
+        self.extra_backstories: List[str] = []
+        self.extra_screens: List[str] = []
+        self.Config: Configuration = Configuration()
+        self.options: Optional[Namespace] = None
+        self.save_state: Optional[Dict] = None
         self.asyncData = type(
             'asyncData', (), {'enabled': False,
                               'eventloop': None,
                               'eventwatcher': None})
-        self.tempHandler = None
+        self.tempHandler: Optional[TemporaryHandler] = None
 
         for (name, value) in kwargs.items():
             if name == 'extra_players':
@@ -111,16 +120,18 @@ class GameMaster(object):
             else:
                 raise TypeError("%s is an invalid keyword argument" % (name))
 
-        if self.save_state is None and self.options is None:
-            raise TypeError(("Either Save State or "
-                             "options must be specified"))
+        # RX: Moved this block of code down (L 149-153, 197-200) to make more
+        # streamlined
 
-        if self.save_state is None:
-            if 'temporary' not in self.options:
-                raise RuntimeError(
-                    "Expected temporary directory to be specified in options")
+        # if self.save_state is None and self.options is None:
+        #     raise TypeError(("Either Save State or "
+        #                      "options must be specified"))
+        # if self.save_state is None:
+        #     if 'temporary' not in self.options:
+        #         raise RuntimeError(
+        #            "Expected temporary directory to be specified in options")
 
-            self.tempHandler = TemporaryHandler(self.options.temporary)
+        #     self.tempHandler = TemporaryHandler(self.options.temporary)
 
         # Idle Wait Default: 1 second
         self._idleWait = self.Config.d20.get('graceTime', 1)
@@ -133,7 +144,14 @@ class GameMaster(object):
 
         if self.save_state is not None:
             self.newGamePlus = True
-        else:
+        # RX: Changed from else to make mypy happy
+        elif self.options is not None:
+            if 'temporary' not in self.options:
+                raise RuntimeError(
+                    "Expected temporary directory to be specified in options")
+
+            self.tempHandler = TemporaryHandler(self.options.temporary)
+
             for inp in ['file', 'backstory_facts', 'backstory_facts_path']:
                 if inp not in self.options:
                     setattr(self.options, inp, None)
@@ -168,19 +186,22 @@ class GameMaster(object):
                     _creator_="GameMaster",
                     metadata={'filename': self.options.file})
             elif self.options.backstory_facts is not None:
-                backstory_facts = yaml.load(
+                backstory_facts: List[Dict[str, Fact]] = yaml.load(
                     self.options.backstory_facts, Loader=yaml.FullLoader)
                 self.backstory_facts = resolveBackStoryFacts(backstory_facts)
             else:
-                with open(self.options.backstory_facts_path, 'r') as f:
+                with open(self.options.backstory_facts_path, 'rb') as f:
                     backstory_facts = yaml.load(
                         f.read(), Loader=yaml.FullLoader)
                 self.backstory_facts = resolveBackStoryFacts(backstory_facts)
+        else:
+            raise TypeError(("Either Save State or "
+                             "options must be specified"))
 
         # Unconditionally load screens
         self.registerScreens()
 
-    def registerHandlers(self):
+    def registerHandlers(self) -> None:
         self.rpc.registerIdleFunction(self.checkGameState)
 
         self.rpc.registerHandlers(
@@ -215,33 +236,34 @@ class GameMaster(object):
               self.streamHandleChildHypStreamStart,
               self.streamHandleChildHypStreamStop)])
 
-    def registerScreens(self):
+    def registerScreens(self) -> None:
         self.screens = verifyScreens(self.extra_screens,
                                      self.Config)
 
-    def registerNPCs(self, load=False):
-        npcs = verifyNPCs(self.extra_npcs,
-                          self.Config)
+    def registerNPCs(self, load: bool = False) -> None:
+        npcs: List[NPC] = verifyNPCs(self.extra_npcs, self.Config)
 
-        if load and self.save_state['npcs'] is not None:
+        if self.save_state is None:
+            return
+        elif load and self.save_state['npcs'] is not None:
             for saved_npc in self.save_state['npcs']:
-                loaded_npc = None
+                loaded_npc: Optional[NPC] = None
                 for npc in npcs:
                     if npc.name == saved_npc['name']:
                         loaded_npc = npc
                         break
 
                 if loaded_npc is not None:
-                    tracker = NPCTracker.load(saved_npc,
-                                              loaded_npc,
-                                              self.rpc,
-                                              self.asyncData)
+                    tracker: NPCTracker = NPCTracker.load(saved_npc,
+                                                          loaded_npc,
+                                                          self.rpc,
+                                                          self.asyncData)
                     self.npcs.append(tracker)
                     npcs.remove(loaded_npc)
 
         for npc in npcs:
             # Get npc id based on list length
-            npc_id = len(self.npcs)
+            npc_id: int = len(self.npcs)
 
             try:
                 tracker = NPCTracker(id=npc_id,
@@ -259,20 +281,22 @@ class GameMaster(object):
             # Add tracker to npc list
             self.npcs.append(tracker)
 
-    def registerBackStories(self, load=False):
-        backstories = verifyBackStories(
+    def registerBackStories(self, load: bool = False) -> None:
+        backstories: List[NPC] = verifyBackStories(
             self.extra_backstories, self.Config)
 
-        if load and self.save_state.get('backstories', None) is not None:
+        if self.save_state is None:
+            return
+        elif load and self.save_state.get('backstories', None) is not None:
             for saved_backstory in self.save_state['backstories']:
-                loaded_backstory = None
+                loaded_backstory: Optional[NPC] = None
                 for backstory in backstories:
                     if backstory.name == saved_backstory['name']:
                         loaded_backstory = backstory
                         break
 
                 if loaded_backstory is not None:
-                    tracker = BackStoryTracker.load(
+                    tracker: BackStoryTracker = BackStoryTracker.load(
                         saved_backstory, loaded_backstory,
                         self.rpc, self.asyncData)
                     self.backstories.append(tracker)
@@ -280,8 +304,8 @@ class GameMaster(object):
 
         for backstory in backstories:
             # Get backstory id based on list length
-            backstory_id = len(self.backstories)
-            category = backstory.registration.category
+            backstory_id: int = len(self.backstories)
+            category: str = backstory.registration.category
 
             if category not in self.backstory_categories.keys():
                 self.backstory_categories[
@@ -304,30 +328,32 @@ class GameMaster(object):
             self.backstories.append(tracker)
             self.backstory_categories[category].addBackStoryTracker(tracker)
 
-    def registerPlayers(self, load=False):
-        unloaded_players = verifyPlayers(self.extra_players,
-                                         self.Config)
+    def registerPlayers(self, load=False) -> None:
+        unloaded_players: List[Player] = verifyPlayers(self.extra_players,
+                                                       self.Config)
 
-        if load and self.save_state['players'] is not None:
+        if self.save_state is None:
+            return
+        elif load and self.save_state['players'] is not None:
             for saved_player in self.save_state['players']:
-                loaded_player = None
+                loaded_player: Optional[Player] = None
                 for player in unloaded_players:
                     if player.name == saved_player['name']:
                         loaded_player = player
                         break
 
                 if loaded_player is not None:
-                    tracker = PlayerTracker.load(saved_player,
-                                                 loaded_player,
-                                                 self.rpc,
-                                                 self.asyncData)
+                    tracker: PlayerTracker = PlayerTracker.load(saved_player,
+                                                                loaded_player,
+                                                                self.rpc,
+                                                                self.asyncData)
                     tracker.maxTurnTime = self._maxTurnTime
                     self.players.append(tracker)
                     unloaded_players.remove(loaded_player)
 
         for player in unloaded_players:
             # Get player id based on list length
-            player_id = len(self.players)
+            player_id: int = len(self.players)
 
             try:
                 tracker = PlayerTracker(id=player_id,
@@ -359,13 +385,13 @@ class GameMaster(object):
                     self.hyp_interests[interest] = []
                 self.hyp_interests[interest].append(tracker.id)
 
-    async def watchGame(self):
+    async def watchGame(self) -> None:
         while self.gameRunning:
             await asyncio.sleep(.01)
 
         self.stop()
 
-    def startGame(self, asyncio_enable=False):
+    def startGame(self, asyncio_enable: bool = False) -> None:
         if self.newGamePlus:
             self.load()
 
@@ -376,9 +402,9 @@ class GameMaster(object):
         self.gameRunning = True
         self.gameThread.start()
 
-        if not self.newGamePlus:
+        if not self.newGamePlus and self.options is not None:
             if self.options.file is not None:
-                FileObj = self.objects[0]
+                FileObj: FileObject = self.objects[0]
                 for npc in self.npcs:
                     LOGGER.debug(
                         "Sending Object %d to npc %s" % (FileObj.id, npc.name))
@@ -402,7 +428,7 @@ class GameMaster(object):
                 self.astop()
                 self.join()
 
-    def engageBackStories(self):
+    def engageBackStories(self) -> None:
         for fact in self.backstory_facts:
             for (category,
                  backstory_category) in self.backstory_categories.items():
@@ -414,43 +440,46 @@ class GameMaster(object):
                     LOGGER.exception(
                         "Error calling BackStory handleFact function")
 
-    def join(self):
-        self.gameThread.join()
+    def join(self) -> None:
+        if self.gameThread:
+            self.gameThread.join()
 
-    def _parse_screen_options(self, screen):
-        options = screen.registration.options.parse(
+    def _parse_screen_options(self, screen: Screen) -> Namespace:
+        options: Namespace = screen.registration.options.parse(
             screen.config.options,
             screen.config.common
         )
         return options
 
-    def provideData(self, screen_name, printable=False):
+    def provideData(self, screen_name: str, printable: bool = False)\
+            -> Iterable:
         if screen_name not in self.screens:
             raise ValueError("No screen by that name")
 
-        options = self._parse_screen_options(
+        options: Namespace = self._parse_screen_options(
             self.screens[screen_name]
         )
         screen = self.screens[screen_name].cls(objects=self.objects,
-                                               facts=self.facts,
-                                               hyps=self.hyps,
-                                               options=options)
+                                                       facts=self.facts,
+                                                       hyps=self.hyps,
+                                                       options=options)
         if printable:
             return screen.present()
         else:
             return screen.filter()
 
-    def save(self):
+    def save(self) -> Dict[str, Any]:
         """Save current game state for later ingestion
         """
-        save_state = {'players': list(),
+        save_state: Dict[str, Any] = {'players': list(),
                       'npcs': list(),
                       'objects': list(),
                       'facts': dict(),
                       'hyps': dict(),
                       'engine': GAME_ENGINE_VERSION_RAW}
 
-        save_state['temp_base'] = self.tempHandler.temporary_base
+        if self.tempHandler is not None:
+            save_state['temp_base'] = self.tempHandler.temporary_base
 
         # Save PlayerTracker Information
         save_state['players'] = \
@@ -471,11 +500,15 @@ class GameMaster(object):
 
         return save_state
 
-    def load(self):
+    def load(self) -> None:
         """Load a game from a save_state
         """
+
+        if self.save_state is None:  # RX: Check for save_State to be populated
+            raise TypeError(("Save state must be specified"))
+
         try:
-            state_version = parseVersion(self.save_state['engine'])
+            state_version: str = parseVersion(self.save_state['engine'])
         except KeyError:
             state_version = parseVersion('0.0.0')
 

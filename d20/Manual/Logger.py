@@ -9,6 +9,7 @@ debug_log_format = ('%(levelname) -10s %(asctime)s %(name) '
 
 DEFAULT_LEVEL = origLogging.INFO
 SUPPRESS_LEVEL = origLogging.ERROR
+Logger = origLogging.Logger
 
 
 class logging:
