@@ -1,4 +1,5 @@
 from argparse import Namespace
+from asyncio.events import AbstractEventLoop
 import sys
 import time
 import threading
@@ -12,7 +13,7 @@ from d20.version import (
 from d20.Manual.Exceptions import (PlayerCreationError,
                                    DuplicateObjectError,
                                    TemporaryDirectoryError)
-from d20.Manual.Logger import logging, Logger
+from d20.Manual.Logger import logging
 from d20.Manual.Trackers import (NPCTracker,
                                  PlayerTracker,
                                  BackStoryTracker,
@@ -21,7 +22,7 @@ from d20.Manual.BattleMap import (FactTable,
                                   HypothesisTable,
                                   ObjectList,
                                   FileObject)
-from d20.Manual.RPC import (RPCServer,
+from d20.Manual.RPC import (RPCRequest, RPCServer,
                             RPCResponseStatus,
                             RPCCommands,
                             RPCStreamCommands)
@@ -42,6 +43,8 @@ if TYPE_CHECKING:
     from d20.BackStories import BackStory
     from d20.Screens import Screen
     from d20.Manual.Facts import Fact
+    from d20.Manual.RPC import Entity
+    from d20.Manual.Logger import Logger
 
 LOGGER: Logger = logging.getLogger(__name__)
 
@@ -82,7 +85,7 @@ class GameMaster(object):
         self._idleTicks: int = 100  # 'ticks' i.e., primarly loop cycles
 
         self.factWaitList: List = list()
-        self.factStreamList: Dict = dict()
+        self.factStreamList: Dict[str, List[]] = dict
         self.hypStreamList: Dict = dict()
         self.objectStreamList: List = list()
 
@@ -504,7 +507,7 @@ class GameMaster(object):
         """Load a game from a save_state
         """
 
-        if self.save_state is None:  # RX: Check for save_State to be populated
+        if self.save_state is None:  # RX: Check for save_state to be populated
             raise TypeError(("Save state must be specified"))
 
         try:
@@ -536,9 +539,9 @@ class GameMaster(object):
                         if not player.checkIfHandledFact(fact):
                             player.handleFact(fact)
 
-    def getEntityName(self, entity):
+    def getEntityName(self, entity: Entity) -> str:
         if entity.isPlayer:
-            name = self.players[entity.id].name
+            name: str = self.players[entity.id].name
         elif entity.isNPC:
             name = self.npcs[entity.id].name
         elif entity.isBackStory:
@@ -548,25 +551,25 @@ class GameMaster(object):
 
         return name
 
-    def astop(self):
+    def astop(self) -> None:
         try:
             # Cleanup async loop before calling stop function
             self.asyncData.eventloop.stop()
             self.asyncData.eventloop.close()
-            new_loop = asyncio.new_event_loop()
+            new_loop: AbstractEventLoop = asyncio.new_event_loop()
             asyncio.set_event_loop(new_loop)
         except Exception:
             LOGGER.warning(
                 "Exception trying to cleanup event loop", exc_info=True)
         self.stop()
 
-    def stop(self):
+    def stop(self) -> None:
         try:
             self.rpc.stop()
         except Exception:
             LOGGER.warning("Exception trying to stop GM", exc_info=True)
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         if self.options.save_file is None and not self.newGamePlus:
             try:
                 self.tempHandler.cleanup()
@@ -574,28 +577,28 @@ class GameMaster(object):
                 raise
 
     """ Game Thread Functions """
-    def runGame(self):
+    def runGame(self) -> None:
         LOGGER.debug("Starting Game")
         self.rpc.start()
         self.rpc.join()
         self.gameRunning = False
         self._reportRuntime()
 
-    def _reportRuntime(self):
-        runtime_threshold = 0.00009
-        npc_runtimes = sorted(
+    def _reportRuntime(self) -> None:
+        runtime_threshold: float = 0.00009
+        npc_runtimes: List[Tuple[float, str]] = sorted(
             [(npc.runtime, npc.name) for npc in self.npcs],
             key=lambda el: el[0],
             reverse=True
         )
 
-        player_runtimes = sorted(
+        player_runtimes: List[Tuple[float, str]] = sorted(
             [(player.runtime, player.name) for player in self.players],
             key=lambda el: el[0],
             reverse=True
         )
 
-        max_name = max(
+        max_name: int = max(
             [len(name) for (runtime, name) in npc_runtimes + player_runtimes])
 
         for (runtime, npc_name) in npc_runtimes:
@@ -610,11 +613,11 @@ class GameMaster(object):
                     "Player '{0: <{2}}' - runtime {1: .4f}s".format(
                         player_name, runtime, max_name))
 
-    def checkGameState(self, last_action_ts):
-        waiting = False
+    def checkGameState(self, last_action_ts: float) -> bool:
+        waiting: bool = False
 
         if self._maxGameTime > 0:
-            runtime = time.time() - self._gameStartTime
+            runtime: float = time.time() - self._gameStartTime
             if runtime > self._maxGameTime:
                 LOGGER.info(
                     f"Maximum game time ({self._maxGameTime}s) reached, "
@@ -656,11 +659,11 @@ class GameMaster(object):
 
         return False
 
-    def handleNoop(self, msg):
+    def handleNoop(self, msg) -> None:
         """handleNoop is meant to reset the game timer"""
 
-    def handlePrint(self, msg):
-        name = self.getEntityName(msg.entity)
+    def handlePrint(self, msg: RPCRequest) -> None:
+        name: str = self.getEntityName(msg.entity)
 
         if 'kwargs' not in msg.args:
             self.rpc.sendErrorResponse(
@@ -672,7 +675,7 @@ class GameMaster(object):
                 msg, reason="Missing required field in args")
             return
 
-        sep = ' '
+        sep: str = ' '
         for (key, value) in msg.args.kwargs.items():
             if key == 'sep':
                 sep = value
@@ -681,11 +684,11 @@ class GameMaster(object):
                     msg, reason="Unexpected field in kwargs")
                 return
 
-        out_str = "%s: " % (name)
+        out_str: str = "%s: " % (name)
 
         if len(msg.args.args) == 1:
             try:
-                print_string = str(msg.args.args[0])
+                print_string: str = str(msg.args.args[0])
             except Exception:
                 LOGGER.exception("Unable to format string for printing")
                 self.rpc.sendErrorResponse(
@@ -702,7 +705,7 @@ class GameMaster(object):
 
         LOGGER.info(out_str + print_string)
 
-    def _checkFactStreamerConditions(self, fact, msg, stream_msg):
+    def _checkFactStreamerConditions(self, fact: Fact, msg: RPCRequest, stream_msg):
         if msg.entity == stream_msg.entity:
             return False
 

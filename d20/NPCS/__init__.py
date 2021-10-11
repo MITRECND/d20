@@ -1,26 +1,32 @@
 import os
+from d20.Manual.Config import Configuration
 
 from d20.Manual.Logger import logging
 from d20.Manual.Registration import RegistrationForm
 from d20.Manual.Utils import loadExtras
 from d20.version import GAME_ENGINE_VERSION
 
-from typing import Dict, Set
+from typing import List, Dict, TYPE_CHECKING, Set, TypeVar, Type, Optional
+if TYPE_CHECKING:
+    from d20.Manual.Logger import Logger
+    Tnpc = TypeVar('Tnpc', bound='NPC')
 
-LOADED: Set = set()
-NPCS: Dict = dict()
-LOGGER = logging.getLogger(__name__)
+
+LOADED: Set[str] = set()
+NPCS: Dict[str, 'NPC'] = dict()
+LOGGER: Logger = logging.getLogger(__name__)
 
 
 class NPC:
-    def __init__(self, name, cls, registration):
-        self.name = name
-        self.cls = cls
-        self.registration = registration
-        self.config = None
+    def __init__(self, name: str, cls: Type[Tnpc],
+                 registration: RegistrationForm):
+        self.name: str = name
+        self.cls: Type[Tnpc] = cls
+        self.registration: RegistrationForm = registration
+        self.config: Optional[Configuration] = None
 
 
-def verifyNPCs(extra_npcs, config):
+def verifyNPCs(extra_npcs: List[str], config: Configuration) -> List[NPC]:
     """Load and verify NPCS
 
         This function takes npcs found on-disk and loads them
@@ -50,15 +56,15 @@ def verifyNPCs(extra_npcs, config):
     return list(NPCS.values())
 
 
-def loadNPC(npc_class, **kwargs):
-    reg = RegistrationForm(**kwargs)
-    ev = GAME_ENGINE_VERSION
+def loadNPC(npc_class: Type[Tnpc], **kwargs: str) -> None:
+    reg: RegistrationForm = RegistrationForm(**kwargs)
+    ev: str = GAME_ENGINE_VERSION
     if reg.engine_version > ev:
         raise ValueError("NPC %s expects version %s or newer"
                          % (reg.name, reg.engine_version))
 
     global NPCS
-    clsname = npc_class.__qualname__
+    clsname: str = npc_class.__qualname__
     if clsname in NPCS:
         LOGGER.warning("NPC with class name %s already registered"
                        % (clsname))
@@ -74,9 +80,9 @@ def loadNPC(npc_class, **kwargs):
     NPCS[clsname] = NPC(reg.name, npc_class, reg)
 
 
-def loadNPCS(extra_npcs):
+def loadNPCS(extra_npcs: List[str]) -> None:
     # Get this files directory
-    paths = [os.path.dirname(os.path.abspath(__file__))]
+    paths: list[str] = [os.path.dirname(os.path.abspath(__file__))]
     paths.extend(extra_npcs)
 
     loadExtras(paths, LOADED)

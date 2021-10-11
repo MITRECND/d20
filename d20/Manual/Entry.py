@@ -5,7 +5,6 @@ import time
 import textwrap
 import yaml
 
-import logging as origLogging # RX: Had to put import here to run
 from d20.version import GAME_ENGINE_VERSION
 from d20.Manual.Logger import logging
 from d20.Manual.Facts import loadFacts
@@ -24,10 +23,11 @@ from typing import Any, List, Dict, Union, TYPE_CHECKING
 if TYPE_CHECKING:
     from d20.Players import Player
     from d20.NPCS import NPC
-    from d20.BackStories import BackStory
     from d20.Screens import Screen
+    from d20.Manual.Logger import Logger
 
-LOGGER: origLogging.Logger = logging.getLogger(__name__)
+LOGGER: Logger = logging.getLogger(__name__)
+
 
 def __fix_default(value: Any) -> str:
     if isinstance(value, bool):
@@ -210,7 +210,7 @@ def main() -> None:
     if args.list_players:
         print("Registered Players:")
         players: List["Player"] = verifyPlayers(args.extra_players,
-                                Config)
+                                                Config)
         if len(players) == 0:
             print("\tNo Players :(")
         else:
@@ -230,7 +230,8 @@ def main() -> None:
 
     if args.list_backstories:
         print("Registered BackStories:")
-        backstories: List[NPC] = verifyBackStories(args.extra_backstories, Config) # UNSURE
+        backstories: List[NPC] = verifyBackStories(args.extra_backstories, 
+                                                   Config) # UNSURE
         if len(backstories) == 0:
             print("\tNo BackStories")
         else:
@@ -241,7 +242,7 @@ def main() -> None:
     if args.list_screens:
         print("Installed Screens:")
         screens: Dict[str, Screen] = verifyScreens(args.extra_screens,
-                                Config)
+                                                   Config)
         if len(screens) == 0:
             print("\tNo Screens")
         else:
@@ -261,7 +262,7 @@ def main() -> None:
                       % (player.registration.engine_version))
 
                 desc_lines: List[str] = textwrap.wrap(player.registration.description,
-                                           width=50)
+                                                      width=50)
                 if len(desc_lines) > 1:
                     prefix: str = "\t%13s" % (' ')
                     print("\tDescription: %s" % (desc_lines.pop(0)))
@@ -482,12 +483,12 @@ def play(**kwargs: Dict[str, Any]) -> Any:
 
     try:
         gm: GameMaster = GameMaster(extra_players=args.extra_players,
-                        extra_npcs=args.extra_npcs,
-                        extra_backstories=args.extra_backstories,
-                        extra_screens=args.extra_screens,
-                        config=Config,
-                        options=args,
-                        save_state=save_state)
+                                    extra_npcs=args.extra_npcs,
+                                    extra_backstories=args.extra_backstories,
+                                    extra_screens=args.extra_screens,
+                                    config=Config,
+                                    options=args,
+                                    save_state=save_state)
     except Exception:
         raise RuntimeError("Unable to init the GM")
 
@@ -582,11 +583,11 @@ def shellmain() -> None:
 
     try:
         gm: GameMaster = GameMaster(extra_players=args.extra_players,
-                        extra_npcs=args.extra_npcs,
-                        extra_backstories=args.extra_backstories,
-                        config=Config,
-                        options=args,
-                        save_state=save_state)
+                                    extra_npcs=args.extra_npcs,
+                                    extra_backstories=args.extra_backstories,
+                                    config=Config,
+                                    options=args,
+                                    save_state=save_state)
     except Exception:
         LOGGER.exception("Unable to init the GM")
         sys.exit(1)
@@ -595,5 +596,6 @@ def shellmain() -> None:
     gm.load()
     shell: ShellCmd = ShellCmd(gm)
     shell.run()
+
 
 main()
