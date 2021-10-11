@@ -1,8 +1,13 @@
+from d20.Manual.BattleMap import FileObject
 from d20.Manual.Templates import (NPCTemplate,
                                   registerNPC)
 from d20.Manual.Facts import MimeTypeFact  # type: ignore
 
 import magic
+
+from typing import Union, TYPE_CHECKING, Optional
+if TYPE_CHECKING:
+    from d20.Manual.Facts import Fact
 
 
 # Process basic information to initially populate fact table
@@ -14,17 +19,17 @@ import magic
     engine_version="0.1"
 )
 class MimeTypeNPC(NPCTemplate):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: str) -> None:
         super().__init__(**kwargs)
 
-    def handleData(self, **kwargs):
+    def handleData(self, **kwargs: FileObject) -> None:
         if 'data' not in kwargs:
             raise RuntimeError("Expected 'data' in arguments")
 
-        dataObj = kwargs['data']
-        data = dataObj.data
+        dataObj: FileObject = kwargs['data']
+        data: Union[bytes, bytearray, memoryview] = dataObj.data
         try:
-            mimetype = magic.from_buffer(data, mime=True)
+            mimetype: Optional[str] = magic.from_buffer(data, mime=True)
         except Exception:
             mimetype = None
         if mimetype:
@@ -32,10 +37,10 @@ class MimeTypeNPC(NPCTemplate):
         else:
             mimetype = None
         try:
-            filetype = magic.from_buffer(data)
+            filetype: Optional[str] = magic.from_buffer(data)
         except Exception:
             filetype = 'Unknown'
-        mimetypeFact = MimeTypeFact(
+        mimetypeFact: Fact = MimeTypeFact(
             mimetype=mimetype,
             filetype=filetype,
             parentObjects=[dataObj.id]

@@ -82,7 +82,7 @@ def loadNPC(npc_class: Type[Tnpc], **kwargs: str) -> None:
 
 def loadNPCS(extra_npcs: List[str]) -> None:
     # Get this files directory
-    paths: list[str] = [os.path.dirname(os.path.abspath(__file__))]
+    paths: List[str] = [os.path.dirname(os.path.abspath(__file__))]
     paths.extend(extra_npcs)
 
     loadExtras(paths, LOADED)

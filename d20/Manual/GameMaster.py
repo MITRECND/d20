@@ -85,7 +85,7 @@ class GameMaster(object):
         self._idleTicks: int = 100  # 'ticks' i.e., primarly loop cycles
 
         self.factWaitList: List = list()
-        self.factStreamList: Dict[str, List[]] = dict
+        self.factStreamList: Dict[str, List] = dict()
         self.hypStreamList: Dict = dict()
         self.objectStreamList: List = list()
 
