@@ -18,7 +18,7 @@ LOGGER: Logger = logging.getLogger(__name__)
 
 class Player:
     def __init__(self, name: str, cls: Type[Tplayer],
-                 registration: RegistrationForm):
+                 registration: RegistrationForm) -> None:
         self.name: str = name
         self.cls: Type[Tplayer] = cls
         self.registration: RegistrationForm = registration

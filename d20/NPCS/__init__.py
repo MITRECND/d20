@@ -19,7 +19,7 @@ LOGGER: Logger = logging.getLogger(__name__)
 
 class NPC:
     def __init__(self, name: str, cls: Type[Tnpc],
-                 registration: RegistrationForm):
+                 registration: RegistrationForm) -> None:
         self.name: str = name
         self.cls: Type[Tnpc] = cls
         self.registration: RegistrationForm = registration
