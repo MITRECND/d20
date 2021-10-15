@@ -15,14 +15,10 @@ from d20.Manual.Utils import loadExtras
 
 from typing import Any, List, Dict, Union, TYPE_CHECKING, Iterable, Tuple, OrderedDict, Type, TypeVar
 if TYPE_CHECKING:
-    from d20.Players import Player
-    from d20.NPCS import NPC
-    from d20.BackStories import BackStory
-    from d20.Screens import Screen
-    import logging as origLogging 
+    from d20.Manual.Logger import Logger
     T = TypeVar('T', bound='_FactMeta_')
 
-LOGGER: origLogging.Logger = logging.getLogger(__name__)
+LOGGER: Logger = logging.getLogger(__name__)
 RegisteredFactGroups: Dict[str, Set] = dict()
 RegisteredFacts: Set = set()
 __all__ = ["registerFact",
