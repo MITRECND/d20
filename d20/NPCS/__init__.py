@@ -10,6 +10,7 @@ from typing import List, Dict, TYPE_CHECKING, Set, TypeVar, Type, Optional
 if TYPE_CHECKING:
     from d20.Manual.Logger import Logger
     Tnpc = TypeVar('Tnpc', bound='NPC')
+    from d20.Manual.Config import EntityConfiguration
 
 
 LOADED: Set[str] = set()
@@ -23,7 +24,7 @@ class NPC:
         self.name: str = name
         self.cls: Type[Tnpc] = cls
         self.registration: RegistrationForm = registration
-        self.config: Optional[Configuration] = None
+        self.config: Optional[EntityConfiguration] = None
 
 
 def verifyNPCs(extra_npcs: List[str], config: Configuration) -> List[NPC]:

@@ -8,7 +8,7 @@ from d20.version import GAME_ENGINE_VERSION
 from typing import List, Dict, TYPE_CHECKING, Set, TypeVar, Type, Optional
 if TYPE_CHECKING:
     from d20.Manual.Logger import Logger
-    from d20.Manual.Config import Configuration
+    from d20.Manual.Config import Configuration, EntityConfiguration
     Tscreen = TypeVar('Tscreen', bound='Screen')
 
 LOADED: Set[str] = set()
@@ -22,7 +22,7 @@ class Screen:
         self.name: str = name
         self.cls: Type[Tscreen] = cls
         self.registration: ScreenRegistrationForm = registration
-        self.config: Optional[Configuration] = None
+        self.config: Optional[EntityConfiguration] = None
 
 
 def verifyScreens(extra_screens: List[str],

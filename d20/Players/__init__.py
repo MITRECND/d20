@@ -8,7 +8,7 @@ from d20.version import GAME_ENGINE_VERSION
 from typing import List, Dict, Set, TYPE_CHECKING, TypeVar, Type, Optional
 if TYPE_CHECKING:
     from d20.Manual.Logger import Logger
-    from d20.Manual.Config import Configuration
+    from d20.Manual.Config import Configuration, EntityConfiguration
     Tplayer = TypeVar('Tplayer', bound='Player')
 
 LOADED: Set[str] = set()
@@ -22,7 +22,7 @@ class Player:
         self.name: str = name
         self.cls: Type[Tplayer] = cls
         self.registration: RegistrationForm = registration
-        self.config: Optional[Configuration] = None
+        self.config: Optional[EntityConfiguration] = None
 
 
 def verifyPlayers(extra_players: List[str],
