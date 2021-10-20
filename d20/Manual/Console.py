@@ -10,12 +10,17 @@ from d20.Manual.Logger import logging
 from d20.Manual.Exceptions import (ConsoleError,
                                    WaitTimeoutError)
 from d20.Manual.Facts import resolveFacts
-from d20.Manual.RPC import (RPCResponseStatus,
+from d20.Manual.RPC import (RPCClient, RPCResponseStatus,
                             RPCCommands,
                             RPCStreamCommands)
 
+from typing import Dict, Optional, Collection, Union, Any, Tuple
+from d20.Manual.Logger import Logger
+from d20.Manual.Temporary import PlayerDirectoryHandler
+from d20.Manual.RPC import RPCResponse
+from d20.Manual.Facts import Fact
 
-LOGGER = logging.getLogger(__name__)
+LOGGER: Logger = logging.getLogger(__name__)
 
 
 class PlayerState(Enum):
@@ -38,45 +43,51 @@ class ConsoleInterface(object):
             config: The config for this console instance
 
     """
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         try:
-            self._id = kwargs['id']
-            self._cloneID = kwargs.get('cloneID', None)
-            self._directoryHandler = kwargs['directoryHandler']
-            self._rpc = kwargs['rpc_client']
-            self._async = kwargs['asyncData']
-            self._config_ = kwargs.get('config', None)
+            self._id: str = kwargs['id']
+            self._cloneID: Optional[str] = kwargs.get('cloneID', None)
+            self._directoryHandler: PlayerDirectoryHandler = \
+                kwargs['directoryHandler']
+            self._rpc: RPCClient = kwargs['rpc_client']
+            # RX: AsyncData is Murad's custom class, may have to revisit
+            self._async: str = kwargs['asyncData'] 
+            self._config_: Union[str, Dict, None] = kwargs.get('config', None)
         except KeyError:
             LOGGER.critical("Expected argument not passed to init",
                             exc_info=True)
             raise
 
-        self._session = None
-        self._sessionConfig = dict()
-        self._sessionRetryConfig = dict()
+        self._session: Optional[Session] = None
+        self._sessionConfig: Dict = dict()
+        self._sessionRetryConfig: Dict = dict()
         # Setup RPC handler for the console
 
-    def __getSession(self, total=5, status_forcelist=None,
-                     backoff_factor=0.2,
-                     method_whitelist=Retry.DEFAULT_METHOD_WHITELIST,
-                     **kwargs):
+    def __getSession(self, total: int = 5,
+                     status_forcelist: Optional[Collection[int]] = None,
+                     backoff_factor: float = 0.2,
+                     method_whitelist: Optional[Collection[str]] =
+                     Retry.DEFAULT_METHOD_WHITELIST,
+                     **kwargs: str) -> Session:
 
         # XXX TODO Retry.DEFAULT_METHOD_WHITELIST is deprecated in favor
         # of Retry.DEFAULT_METHODS_ALLOWED and method_whitelist is deprecated
         # in favor of allowed_methods, both of which do not seem to exist in
         # the version of urllib that gets pulled in
-        retryConfig = Retry(total=total, status_forcelist=status_forcelist,
-                            backoff_factor=backoff_factor,
-                            method_whitelist=method_whitelist,
-                            raise_on_redirect=False, **kwargs)
+        retryConfig: Retry = Retry(total=total,
+                                   status_forcelist=status_forcelist,
+                                   backoff_factor=backoff_factor,
+                                   method_whitelist=method_whitelist,
+                                   raise_on_redirect=False, **kwargs)
 
-        session = Session()
+        session: Session = Session()
 
-        proxies = dict()
-        if 'http_proxy' in self._config_:
-            proxies['http'] = self._config_['http_proxy']
-        if 'https_proxy' in self._config_:
-            proxies['https'] = self._config_['https_proxy']
+        proxies: Dict[str, str] = dict()
+        if isinstance(self._config_, dict):  # RX: Confirm dict
+            if 'http_proxy' in self._config_:
+                proxies['http'] = self._config_['http_proxy']
+            if 'https_proxy' in self._config_:
+                proxies['https'] = self._config_['https_proxy']
 
         if len(proxies.keys()) > 0:
             session.proxies = proxies
@@ -93,7 +104,7 @@ class ConsoleInterface(object):
         return session
 
     @property
-    def async_(self):
+    def async_(self):  # RX: Revisit here
         """asyncio support data
 
             This property/method returns a data object that contains three
@@ -114,7 +125,7 @@ class ConsoleInterface(object):
         return self._async
 
     @property
-    def requests(self):
+    def requests(self) -> Session:
         """Configured requests session
 
             This property/method returns a configured Session object
@@ -123,10 +134,10 @@ class ConsoleInterface(object):
             more information
         """
         if self._session is None:
-            self._session = self.__getSession(self._sessionRetryConfig)
+            self._session = self.__getSession(**self._sessionRetryConfig)
         return self._session
 
-    def configureRequestsRetry(self, **kwargs):
+    def configureRequestsRetry(self, **kwargs: Dict) -> None:
         """Configuration options for the Retry class
 
             This function allows you to customize the behavior of the Retry
@@ -135,7 +146,7 @@ class ConsoleInterface(object):
         """
         self._sessionRetryConfig = kwargs
 
-    def configureRequestsSession(self, config):
+    def configureRequestsSession(self, config: Dict) -> None:
         """Configuration options for Session object
 
             This function takes a dict with k/v pairs that coorespond to
@@ -156,18 +167,18 @@ class ConsoleInterface(object):
         self._session = None
 
     @property
-    def myDirectory(self):
+    def myDirectory(self) -> str:
         """Returns entity's directory information"""
         return self._directoryHandler.myDir
 
-    def createTempDirectory(self):
+    def createTempDirectory(self) -> str:
         """Creates and returns a temporary directory"""
         return self._directoryHandler.tempdir()
 
-    def _noop(self):
+    def _noop(self) -> None:
         self._rpc.sendAndIgnore(command=RPCCommands.noop)
 
-    def print(self, *args, **kwargs):
+    def print(self, *args: Tuple, **kwargs: Dict) -> None:
         """Prints out stuff, similar to python built-in print
 
             Entities should not use the built-in print since this provides
@@ -177,8 +188,11 @@ class ConsoleInterface(object):
         self._rpc.sendAndIgnore(command=RPCCommands.print,
                                 args={'args': args, 'kwargs': kwargs})
 
-    def addObject(self, object_data, creator, parentObjects,
-                  parentFacts, parentHyps, metadata, encoding):
+    def addObject(self, object_data: bytes, creator: str,
+                  parentObjects: Optional[Iterable],
+                  parentFacts: Optional[Iterable],
+                  parentHyps: Optional[Iterable], metadata: Optional[Dict],
+                  encoding: Optional[str]) -> RPCResponse:
         """Adds an object to the object list
 
             Args:
@@ -186,7 +200,7 @@ class ConsoleInterface(object):
 
             Returns: The object id
         """
-
+        # RX: Do we still need the isinstance checks?
         if (parentObjects is not None
                 and not isinstance(parentObjects, Iterable)):
             raise ValueError("parent objects must be a list")
@@ -199,7 +213,7 @@ class ConsoleInterface(object):
                 and not isinstance(parentHyps, Iterable)):
             raise ValueError("parent hypotheses must be a list")
 
-        resp = self._rpc.sendAndWait(
+        resp: RPCResponse = self._rpc.sendAndWait(
             command=RPCCommands.addObject,
             args={'object_data': object_data,
                   'parentObjects': parentObjects,
@@ -214,7 +228,8 @@ class ConsoleInterface(object):
 
         return resp
 
-    def addFact(self, fact, creator, require_parentage=True):
+    def addFact(self, fact: Fact, creator: str, 
+                require_parentage: bool = True) -> RPCResponse:
         """Adds an item to the fact table
 
             Args:
@@ -232,15 +247,16 @@ class ConsoleInterface(object):
             raise ValueError("Fact's parentage must be populated")
 
         fact._creator_ = creator
-        resp = self._rpc.sendAndWait(command=RPCCommands.addFact,
-                                     args={'fact': fact})
+        resp: RPCResponse = self._rpc.sendAndWait(command=RPCCommands.addFact,
+                                                  args={'fact': fact})
 
         if resp.status == RPCResponseStatus.error:
             raise ConsoleError(resp.reason)
 
         return resp
 
-    def addHyp(self, hyp, creator, require_parentage=True):
+    def addHyp(self, hyp: Fact, creator: str, 
+               require_parentage: bool = True) -> RPCResponse:
         """Adds an item to the hypothesis table
 
             Args:
@@ -259,8 +275,8 @@ class ConsoleInterface(object):
 
         hyp._creator_ = creator
         hyp._taint()
-        resp = self._rpc.sendAndWait(command=RPCCommands.addHyp,
-                                     args={'hyp': hyp})
+        resp: RPCResponse = self._rpc.sendAndWait(command=RPCCommands.addHyp,
+                                                  args={'hyp': hyp})
 
         if resp.status == RPCResponseStatus.error:
             raise ConsoleError(resp.reason)
@@ -279,7 +295,7 @@ class BackStoryConsole(ConsoleInterface):
             backstorytracker: The internal tracker class for this backstory
 
     """
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         super().__init__(id=kwargs['id'],
                          directoryHandler=kwargs['directoryHandler'],
                          rpc_client=kwargs['rpc_client'],
@@ -289,13 +305,13 @@ class BackStoryConsole(ConsoleInterface):
         self.__tracker_ = kwargs['tracker']
 
     @property
-    def memory(self):
+    def memory(self) -> Dict:
         """Property to store backstory-level memory"""
         return self.__tracker_.memory
 
-    def addObject(self, object_data, parentObjects=None,
-                  parentFacts=None, parentHyps=None,
-                  metadata=None, encoding=None):
+    def addObject(self, object_data: bytes, parentObjects: Iterable = None,
+                  parentFacts: Iterable = None, parentHyps: Iterable = None,
+                  metadata: Dict = None, encoding: str = None) -> int:
         """Adds an object to the object list
 
             Args:
@@ -303,9 +319,10 @@ class BackStoryConsole(ConsoleInterface):
 
             Returns: The object id
         """
-        resp = super().addObject(object_data, self.__tracker_.name,
-                                 parentObjects, parentFacts, parentHyps,
-                                 metadata, encoding)
+        resp: RPCResponse = super().addObject(object_data,
+                                              self.__tracker_.name,
+                                              parentObjects, parentFacts,
+                                              parentHyps, metadata, encoding)
 
         return resp.result.object_id
 
