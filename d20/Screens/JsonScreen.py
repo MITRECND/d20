@@ -6,9 +6,8 @@ from d20.Manual.Logger import logging
 import json
 import binascii
 
-from typing import Dict, TYPE_CHECKING, Type, Optional, Any
-if TYPE_CHECKING:
-    from d20.Manual.Logger import Logger
+from typing import Dict, Type, Optional, Any
+from d20.Manual.Logger import Logger
 
 LOGGER: Logger = logging.getLogger(__name__)
 

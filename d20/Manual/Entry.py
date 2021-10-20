@@ -20,13 +20,12 @@ from d20.Manual.Options import _empty
 
 
 from typing import Any, List, Dict, Union, TYPE_CHECKING
-if TYPE_CHECKING:
-    from d20.Players import Player
-    from d20.NPCS import NPC
-    from d20.Screens import Screen
-    from d20.Manual.Logger import Logger
+from d20.Players import Player
+from d20.NPCS import NPC
+from d20.Screens import Screen
+from d20.Manual.Logger import Logger
 
-LOGGER: Logger = logging.getLogger(__name__)
+LOGGER: 'Logger' = logging.getLogger(__name__)
 
 
 def __fix_default(value: Any) -> str:
@@ -83,7 +82,7 @@ def __generate_config_file(args: argparse.Namespace, config: Configuration) -> N
         print(default_config)
 
 
-def __setup(args: Any, console: bool = False) -> Configuration:
+def __setup(args: argparse.Namespace, console: bool = False) -> Configuration:
     logging.setupLogger(
             debug=args.debug,
             verbose=args.verbose,
@@ -231,7 +230,7 @@ def main() -> None:
     if args.list_backstories:
         print("Registered BackStories:")
         backstories: List[NPC] = verifyBackStories(args.extra_backstories, 
-                                                   Config) # UNSURE
+                                                   Config)  # UNSURE
         if len(backstories) == 0:
             print("\tNo BackStories")
         else:

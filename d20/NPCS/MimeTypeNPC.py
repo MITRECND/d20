@@ -5,9 +5,8 @@ from d20.Manual.Facts import MimeTypeFact  # type: ignore
 
 import magic
 
-from typing import Union, TYPE_CHECKING, Optional
-if TYPE_CHECKING:
-    from d20.Manual.Facts import Fact
+from typing import Union, Optional
+from d20.Manual.Facts import Fact
 
 
 # Process basic information to initially populate fact table

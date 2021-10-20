@@ -6,11 +6,10 @@ from d20.Manual.Registration import RegistrationForm
 from d20.Manual.Utils import loadExtras
 from d20.version import GAME_ENGINE_VERSION
 
-from typing import List, Dict, TYPE_CHECKING, Set, TypeVar, Type, Optional
-if TYPE_CHECKING:
-    from d20.Manual.Logger import Logger
-    Tnpc = TypeVar('Tnpc', bound='NPC')
-    from d20.Manual.Config import EntityConfiguration
+from typing import List, Dict, Set, TypeVar, Type, Optional
+from d20.Manual.Logger import Logger
+from d20.Manual.Config import EntityConfiguration
+Tnpc = TypeVar('Tnpc', bound='NPC')
 
 
 LOADED: Set[str] = set()

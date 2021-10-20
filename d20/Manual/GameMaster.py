@@ -37,14 +37,13 @@ from d20.BackStories import (
 from d20.Screens import verifyScreens
 
 from typing import Any, List, Dict, Union, TYPE_CHECKING, Iterable, Tuple, Type, TypeVar, Optional
-if TYPE_CHECKING:
-    from d20.Players import Player
-    from d20.NPCS import NPC
-    from d20.BackStories import BackStory
-    from d20.Screens import Screen
-    from d20.Manual.Facts import Fact
-    from d20.Manual.RPC import Entity
-    from d20.Manual.Logger import Logger
+from d20.Players import Player
+from d20.NPCS import NPC
+from d20.BackStories import BackStory
+from d20.Screens import Screen
+from d20.Manual.Facts import Fact
+from d20.Manual.RPC import Entity
+from d20.Manual.Logger import Logger
 
 LOGGER: Logger = logging.getLogger(__name__)
 

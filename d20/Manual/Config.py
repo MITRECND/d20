@@ -3,10 +3,9 @@ import yaml
 import cerberus
 from d20.Manual.Logger import logging
 
-from typing import List, Dict, TYPE_CHECKING, Union
-if TYPE_CHECKING:
-    from d20.Manual.Logger import Logger
-    import argparse
+from typing import List, Dict, Union
+from d20.Manual.Logger import Logger
+import argparse
 
 LOGGER: Logger = logging.getLogger(__name__)
 

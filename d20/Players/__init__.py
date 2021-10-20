@@ -5,11 +5,10 @@ from d20.Manual.Registration import RegistrationForm
 from d20.Manual.Utils import loadExtras
 from d20.version import GAME_ENGINE_VERSION
 
-from typing import List, Dict, Set, TYPE_CHECKING, TypeVar, Type, Optional
-if TYPE_CHECKING:
-    from d20.Manual.Logger import Logger
-    from d20.Manual.Config import Configuration, EntityConfiguration
-    Tplayer = TypeVar('Tplayer', bound='Player')
+from typing import List, Dict, Set, TypeVar, Type, Optional
+from d20.Manual.Logger import Logger
+from d20.Manual.Config import Configuration, EntityConfiguration
+Tplayer = TypeVar('Tplayer', bound='Player')
 
 LOADED: Set[str] = set()
 PLAYERS: Dict[str, 'Player'] = dict()

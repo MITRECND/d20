@@ -5,11 +5,10 @@ from d20.Manual.Registration import ScreenRegistrationForm
 from d20.Manual.Utils import loadExtras
 from d20.version import GAME_ENGINE_VERSION
 
-from typing import List, Dict, TYPE_CHECKING, Set, TypeVar, Type, Optional
-if TYPE_CHECKING:
-    from d20.Manual.Logger import Logger
-    from d20.Manual.Config import Configuration, EntityConfiguration
-    Tscreen = TypeVar('Tscreen', bound='Screen')
+from typing import List, Dict, Set, TypeVar, Type, Optional
+from d20.Manual.Logger import Logger
+from d20.Manual.Config import Configuration, EntityConfiguration
+Tscreen = TypeVar('Tscreen', bound='Screen')
 
 LOADED: Set[str] = set()
 SCREENS: Dict[str, 'Screen'] = dict()

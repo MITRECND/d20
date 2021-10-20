@@ -14,9 +14,8 @@ from d20.Manual.Logger import logging
 from d20.Manual.Utils import loadExtras
 
 from typing import Any, List, Dict, Union, TYPE_CHECKING, Iterable, Tuple, OrderedDict, Type, TypeVar
-if TYPE_CHECKING:
-    from d20.Manual.Logger import Logger
-    T = TypeVar('T', bound='_FactMeta_')
+from d20.Manual.Logger import Logger
+T = TypeVar('T', bound='_FactMeta_')
 
 LOGGER: Logger = logging.getLogger(__name__)
 RegisteredFactGroups: Dict[str, Set] = dict()
@@ -137,7 +136,7 @@ class _FactMeta_(type):
     def __prepare__(cls, clsname, bases):
         return OrderedDict()
 
-    def __new__(cls: Type[T], clsname: str, bases: Any, dct: Any):
+    def __new__(cls, clsname: str, bases: Any, dct: Any):
         fields: List[str] = [key for (key, val) in dct.items()
                   if isinstance(val, FactField)]
 

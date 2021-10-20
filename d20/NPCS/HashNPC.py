@@ -7,9 +7,8 @@ from d20.Manual.Facts import (MD5HashFact, SHA1HashFact,  # type: ignore
 import hashlib
 import ssdeep
 
-from typing import Union, TYPE_CHECKING
-if TYPE_CHECKING:
-    from d20.Manual.Facts import Fact
+from typing import Union
+from d20.Manual.Facts import Fact
 
 
 # Process basic information to initially populate fact table

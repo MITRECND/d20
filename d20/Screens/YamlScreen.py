@@ -6,9 +6,8 @@ import yaml
 import binascii
 from collections import OrderedDict
 
-from typing import List, Dict, TYPE_CHECKING, Any
-if TYPE_CHECKING:
-    from d20.Manual.Logger import Logger
+from typing import List, Dict, Any
+from d20.Manual.Logger import Logger
 
 LOGGER: Logger = logging.getLogger(__name__)
 
