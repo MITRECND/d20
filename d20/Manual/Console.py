@@ -14,11 +14,12 @@ from d20.Manual.RPC import (RPCClient, RPCResponseStatus,
                             RPCCommands,
                             RPCStreamCommands)
 
-from typing import Dict, Optional, Collection, Union, Any, Tuple
+from typing import List, Dict, Optional, Collection, Union, Any, Tuple
 from d20.Manual.Logger import Logger
 from d20.Manual.Temporary import PlayerDirectoryHandler
 from d20.Manual.RPC import RPCResponse
 from d20.Manual.Facts import Fact
+from d20.Manual.Trackers import BackStoryTracker, NPCTracker, PlayerTracker
 
 LOGGER: Logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class ConsoleInterface(object):
                 kwargs['directoryHandler']
             self._rpc: RPCClient = kwargs['rpc_client']
             # RX: AsyncData is Murad's custom class, may have to revisit
-            self._async: str = kwargs['asyncData'] 
+            self._async: str = kwargs['asyncData']
             self._config_: Union[str, Dict, None] = kwargs.get('config', None)
         except KeyError:
             LOGGER.critical("Expected argument not passed to init",
@@ -188,11 +189,11 @@ class ConsoleInterface(object):
         self._rpc.sendAndIgnore(command=RPCCommands.print,
                                 args={'args': args, 'kwargs': kwargs})
 
-    def addObject(self, object_data: bytes, creator: str,
-                  parentObjects: Optional[Iterable],
-                  parentFacts: Optional[Iterable],
-                  parentHyps: Optional[Iterable], metadata: Optional[Dict],
-                  encoding: Optional[str]) -> RPCResponse:
+    def _addObject(self, object_data: bytes, creator: str,
+                   parentObjects: Optional[Iterable],
+                   parentFacts: Optional[Iterable],
+                   parentHyps: Optional[Iterable], metadata: Optional[Dict],
+                   encoding: Optional[str]) -> RPCResponse:
         """Adds an object to the object list
 
             Args:
@@ -228,8 +229,8 @@ class ConsoleInterface(object):
 
         return resp
 
-    def addFact(self, fact: Fact, creator: str, 
-                require_parentage: bool = True) -> RPCResponse:
+    def _addFact(self, fact: Fact, creator: str,
+                 require_parentage: bool = True) -> RPCResponse:
         """Adds an item to the fact table
 
             Args:
@@ -255,8 +256,8 @@ class ConsoleInterface(object):
 
         return resp
 
-    def addHyp(self, hyp: Fact, creator: str, 
-               require_parentage: bool = True) -> RPCResponse:
+    def _addHyp(self, hyp: Fact, creator: str,
+                require_parentage: bool = True) -> RPCResponse:
         """Adds an item to the hypothesis table
 
             Args:
@@ -302,7 +303,7 @@ class BackStoryConsole(ConsoleInterface):
                          asyncData=kwargs['asyncData'],
                          config=kwargs.get('config'))
 
-        self.__tracker_ = kwargs['tracker']
+        self.__tracker_: BackStoryTracker = kwargs['tracker']
 
     @property
     def memory(self) -> Dict:
@@ -319,14 +320,14 @@ class BackStoryConsole(ConsoleInterface):
 
             Returns: The object id
         """
-        resp: RPCResponse = super().addObject(object_data,
-                                              self.__tracker_.name,
-                                              parentObjects, parentFacts,
-                                              parentHyps, metadata, encoding)
+        resp: RPCResponse = super()._addObject(object_data,
+                                               self.__tracker_.name,
+                                               parentObjects, parentFacts,
+                                               parentHyps, metadata, encoding)
 
         return resp.result.object_id
 
-    def addFact(self, fact):
+    def addFact(self, fact: Fact) -> None:
         """Adds an item to the fact table
 
             Args:
@@ -336,9 +337,9 @@ class BackStoryConsole(ConsoleInterface):
 
             Raises: ValueError if object id and reference are not set
         """
-        super().addFact(fact, self.__tracker_.name, require_parentage=False)
+        super()._addFact(fact, self.__tracker_.name, require_parentage=False)
 
-    def addHyp(self, hyp):
+    def addHyp(self, hyp: Fact) -> None:
         """Adds an item to the hyp table
 
             Args:
@@ -348,7 +349,7 @@ class BackStoryConsole(ConsoleInterface):
 
             Raises: ValueError if object id and reference are not set
         """
-        super().addHyp(hyp, self.__tracker_.name, require_parentage=False)
+        super()._addHyp(hyp, self.__tracker_.name, require_parentage=False)
 
 
 class NPCConsole(ConsoleInterface):
@@ -362,23 +363,23 @@ class NPCConsole(ConsoleInterface):
             npctracker: The internal tracker class for this npc
 
     """
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         super().__init__(id=kwargs['id'],
                          directoryHandler=kwargs['directoryHandler'],
                          rpc_client=kwargs['rpc_client'],
                          asyncData=kwargs['asyncData'],
                          config=kwargs.get('config'))
 
-        self.__tracker_ = kwargs['tracker']
+        self.__tracker_: NPCTracker = kwargs['tracker']
 
     @property
-    def memory(self):
+    def memory(self) -> Dict:
         """Property to store npc-level memory"""
         return self.__tracker_.memory
 
-    def addObject(self, object_data, parentObjects=None,
-                  parentFacts=None, parentHyps=None,
-                  metadata=None, encoding=None):
+    def addObject(self, object_data: bytes, parentObjects: Iterable = None,
+                  parentFacts: Iterable = None, parentHyps: Iterable = None,
+                  metadata: Dict = None, encoding: str = None) -> int:
         """Adds an object to the object list
 
             Args:
@@ -386,13 +387,14 @@ class NPCConsole(ConsoleInterface):
 
             Returns: The object id
         """
-        resp = super().addObject(object_data, self.__tracker_.name,
-                                 parentObjects, parentFacts, parentHyps,
-                                 metadata, encoding)
+        resp: RPCResponse = super()._addObject(object_data,
+                                               self.__tracker_.name,
+                                               parentObjects, parentFacts,
+                                               parentHyps, metadata, encoding)
 
         return resp.result.object_id
 
-    def addFact(self, fact):
+    def addFact(self, fact: Fact) -> None:
         """Adds an item to the fact table
 
             Args:
@@ -402,9 +404,9 @@ class NPCConsole(ConsoleInterface):
 
             Raises: ValueError if object id and reference are not set
         """
-        super().addFact(fact, self.__tracker_.name)
+        super()._addFact(fact, self.__tracker_.name)
 
-    def addHyp(self, hyp):
+    def addHyp(self, hyp: Fact) -> None:
         """Adds an item to the hyp table
 
             Args:
@@ -414,7 +416,7 @@ class NPCConsole(ConsoleInterface):
 
             Raises: ValueError if object id and reference are not set
         """
-        super().addHyp(hyp, self.__tracker_.name)
+        super()._addHyp(hyp, self.__tracker_.name)
 
 
 class PlayerConsole(ConsoleInterface):
@@ -427,7 +429,7 @@ class PlayerConsole(ConsoleInterface):
             config: The config for this console instance
             tracker: The internal tracker of a player
     """
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         super().__init__(id=kwargs['id'],
                          directoryHandler=kwargs['directoryHandler'],
                          rpc_client=kwargs['rpc_client'],
@@ -435,82 +437,86 @@ class PlayerConsole(ConsoleInterface):
                          cloneID=kwargs['clone_id'],
                          config=kwargs.get('config', None))
 
-        self.__tainted_ = kwargs['tainted']
-        self.__tracker_ = kwargs['tracker']
+        self.__tainted_: bool = kwargs['tainted']
+        self.__tracker_: PlayerTracker = kwargs['tracker']
 
     @property
-    def id(self):
+    def id(self) -> Tuple[str, Optional[str]]:
         return (self._id, self._cloneID)
 
     @property
-    def memory(self):
+    def memory(self) -> Dict:
         return self.__tracker_.memory
 
     @property
-    def __clone_(self):
+    def __clone_(self) -> Optional[str]:
         return self.__tracker_.clones[self._cloneID]
 
     @property
-    def data(self):
+    def data(self) -> bytes:
         return self.__tracker_.cloneMemory[self._cloneID]
 
-    def setWaiting(self):
+    def setWaiting(self) -> None:
         self.__tracker_.clones[self._cloneID] \
             ._state = PlayerState.waiting
 
-    def setRunning(self):
+    def setRunning(self) -> None:
         self.__tracker_.clones[self._cloneID] \
             ._state = PlayerState.running
         self.__tracker_.clones[self._cloneID] \
             ._turnStart = time.time()
 
-    def getClones(self):
+    def getClones(self) -> None:
         pass
 
-    def getObject(self, object_id):
+    def getObject(self, object_id: int) -> Any:
         """Returns the object with the given id
         """
-        resp = self._rpc.sendAndWait(command=RPCCommands.getObject,
-                                     args={'object_id': object_id})
+        resp: RPCResponse = self._rpc.sendAndWait(
+                                command=RPCCommands.getObject,
+                                args={'object_id': object_id})
 
         if resp.status == RPCResponseStatus.error:
             raise ConsoleError(resp.reason)
 
         return resp.result.object
 
-    def getAllObjects(self):
+    def getAllObjects(self) -> List:
         """Returns a list of all objects
         """
-        resp = self._rpc.sendAndWait(command=RPCCommands.getAllObjects)
+        resp: RPCResponse = self._rpc.sendAndWait(
+                                command=RPCCommands.getAllObjects)
 
         if resp.status == RPCResponseStatus.error:
             raise ConsoleError(resp.reason)
 
         return resp.result.object_list
 
-    def getFact(self, factID):
+    def getFact(self, factID: int) -> Fact:
         """Returns a specific fact based on id
         """
-        resp = self._rpc.sendAndWait(command=RPCCommands.getFact,
-                                     args={'fact_id': factID})
+        resp: RPCResponse = self._rpc.sendAndWait(
+                                command=RPCCommands.getFact,
+                                args={'fact_id': factID})
 
         if resp.status == RPCResponseStatus.error:
             raise ConsoleError(resp.reason)
 
         return resp.result.fact
 
-    def getHyp(self, hypID):
+    def getHyp(self, hypID: int) -> Fact:
         """Returns a specific hypothesis based on id
         """
-        resp = self._rpc.sendAndWait(command=RPCCommands.getHyp,
-                                     args={'hyp_id': hypID})
+        resp: RPCResponse = self._rpc.sendAndWait(
+                                command=RPCCommands.getHyp,
+                                args={'hyp_id': hypID})
 
         if resp.status == RPCResponseStatus.error:
             raise ConsoleError(resp.reason)
 
         return resp.result.hyp
 
-    def getAllFacts(self, fact_type):
+    def getAllFacts(self, fact_type: Union[str, List[str]]) -> List[Fact]:
         """Returns a list of all facts of a given type
         """
 
@@ -519,15 +525,16 @@ class PlayerConsole(ConsoleInterface):
 
         fact_type = resolveFacts(*fact_type)
 
-        resp = self._rpc.sendAndWait(command=RPCCommands.getAllFacts,
-                                     args={'fact_type': fact_type})
+        resp: RPCResponse = self._rpc.sendAndWait(
+                                command=RPCCommands.getAllFacts,
+                                args={'fact_type': fact_type})
 
         if resp.status == RPCResponseStatus.error:
             raise ConsoleError(resp.reason)
 
         return resp.result.fact_list
 
-    def getAllHyps(self, hyp_type):
+    def getAllHyps(self, hyp_type: Union[str, List[str]]) -> List[Fact]:
         """Returns a list of all hypotheses of a given type
         """
 
@@ -536,15 +543,16 @@ class PlayerConsole(ConsoleInterface):
 
         hyp_type = resolveFacts(*hyp_type)
 
-        resp = self._rpc.sendAndWait(command=RPCCommands.getAllFacts,
-                                     args={'hyp_type': hyp_type})
+        resp: RPCResponse = self._rpc.sendAndWait(
+                                command=RPCCommands.getAllFacts,
+                                args={'hyp_type': hyp_type})
 
         if resp.status == RPCResponseStatus.error:
             raise ConsoleError(resp.reason)
 
         return resp.result.hyp_list
 
-    def _waitOn(self, stream_id):
+    def _waitOn(self, stream_id: int) -> Iterable:
         # Set the state to waiting before entering the loop
         # since the generator will block
         self.setWaiting()
@@ -566,7 +574,8 @@ class PlayerConsole(ConsoleInterface):
             # after this function/generator exits
             self.setRunning()
 
-    def waitOnFacts(self, facts, only_latest=False):
+    def waitOnFacts(self, facts: Union[str, List[str]],
+                    only_latest: bool = False) -> Iterable:
         """Waits on facts until player breaks out of generator
         """
 
@@ -574,14 +583,16 @@ class PlayerConsole(ConsoleInterface):
             facts = [facts]
         facts = resolveFacts(*facts)
 
-        stream_id = self._rpc.startStream(command=RPCStreamCommands.factStream,
-                                          args={'fact_types': facts,
-                                                'only_latest': only_latest})
+        stream_id: int = self._rpc.startStream(
+                                command=RPCStreamCommands.factStream,
+                                args={'fact_types': facts,
+                                      'only_latest': only_latest})
 
         for msg in self._waitOn(stream_id):
             yield msg.result.fact
 
-    def waitOnHyps(self, hyps, only_latest=False):
+    def waitOnHyps(self, hyps: Union[str, List[str]],
+                   only_latest: bool = False) -> Iterable:
         """Waits on hypotheses until player breaks out of generator
         """
 
@@ -589,15 +600,19 @@ class PlayerConsole(ConsoleInterface):
             hyps = [hyps]
         hyps = resolveFacts(*hyps)
 
-        stream_id = self._rpc.startStream(command=RPCStreamCommands.hypStream,
-                                          args={'hyp_types': hyps,
-                                                'only_latest': only_latest})
+        stream_id: int = self._rpc.startStream(
+                                    command=RPCStreamCommands.hypStream,
+                                    args={'hyp_types': hyps,
+                                          'only_latest': only_latest})
 
         for msg in self._waitOn(stream_id):
             yield msg.result.hyp
 
-    def waitOnChildFacts(self, object_id=None, fact_id=None, hyp_id=None,
-                         facts=None, only_latest=False):
+    def waitOnChildFacts(self, object_id: Optional[int] = None,
+                         fact_id: Optional[int] = None,
+                         hyp_id: Optional[int] = None,
+                         facts: Union[str, List[str]] = None,
+                         only_latest: bool = False) -> Iterable:
         """Wait on facts of given types, for a given object id, fact id, or
             hyp id until player breaks out of generator
         """
@@ -617,7 +632,7 @@ class PlayerConsole(ConsoleInterface):
             facts = [facts]
         facts = resolveFacts(*facts)
 
-        stream_id = self._rpc.startStream(
+        stream_id: int = self._rpc.startStream(
             command=RPCStreamCommands.childFactStream,
             args={'object_id': object_id,
                   'fact_id': fact_id,
@@ -628,8 +643,11 @@ class PlayerConsole(ConsoleInterface):
         for msg in self._waitOn(stream_id):
             yield msg.result.fact
 
-    def waitOnChildHyps(self, object_id=None, fact_id=None, hyp_id=None,
-                        types=None, only_latest=False):
+    def waitOnChildHyps(self, object_id: Optional[int] = None,
+                        fact_id: Optional[int] = None,
+                        hyp_id: Optional[int] = None,
+                        types: Union[str, List[str]] = None,
+                        only_latest: bool = False) -> Iterable:
         """Wait on hypotheses of given types, for a given object id, fact id,
             or hypothesis id until player breaks out of generator
         """
@@ -649,7 +667,7 @@ class PlayerConsole(ConsoleInterface):
             types = [types]
         types = resolveFacts(*types)
 
-        stream_id = self._rpc.startStream(
+        stream_id: int = self._rpc.startStream(
             command=RPCStreamCommands.childHypStream,
             args={'object_id': object_id,
                   'fact_id': fact_id,
@@ -660,8 +678,10 @@ class PlayerConsole(ConsoleInterface):
         for msg in self._waitOn(stream_id):
             yield msg.result.hyp
 
-    def waitOnChildObjects(self, object_id=None, fact_id=None,
-                           hyp_id=None, only_latest=False):
+    def waitOnChildObjects(self, object_id: Optional[int] = None,
+                           fact_id: Optional[int] = None,
+                           hyp_id: Optional[int] = None,
+                           only_latest: bool = False) -> Iterable:
         """Wait on child objects of a given object id, fact id, or
             hypothesis id
         """
@@ -674,7 +694,7 @@ class PlayerConsole(ConsoleInterface):
             raise ValueError(("Only one of object id, fact_id, or hyp_id "
                               "maybe used"))
 
-        stream_id = self._rpc.startStream(
+        stream_id: int = self._rpc.startStream(
             command=RPCStreamCommands.childObjectStream,
             args={'object_id': object_id,
                   'fact_id': fact_id,
@@ -684,7 +704,9 @@ class PlayerConsole(ConsoleInterface):
         for msg in self._waitOn(stream_id):
             yield msg.result.object
 
-    def waitTillFact(self, fact_type, last_fact=None, timeout=0):
+    def waitTillFact(self, fact_type: Union[str, List[str]],
+                     last_fact: Optional[int] = None,
+                     timeout: int = 0) -> None:
         """Waits up till timeout (default forever) for fact to show up
 
             If timeout is reached will return None
@@ -694,9 +716,9 @@ class PlayerConsole(ConsoleInterface):
 
         fact_type = resolveFacts(*fact_type)
 
-        msg_id = self._rpc.sendMessage(command=RPCCommands.waitTillFact,
-                                       args={'fact_type': fact_type,
-                                             'last_fact': last_fact})
+        msg_id: int = self._rpc.sendMessage(command=RPCCommands.waitTillFact,
+                                            args={'fact_type': fact_type,
+                                                  'last_fact': last_fact})
 
         self.setWaiting()
         resp = self._rpc.waitForResponse(msg_id, timeout)
@@ -708,21 +730,21 @@ class PlayerConsole(ConsoleInterface):
             raise WaitTimeoutError()
             # TODO FIXME XXX
 
-    def addObject(self, object_data, parentObjects=None,
-                  parentFacts=None, parentHyps=None,
-                  metadata=None, encoding=None):
+    def addObject(self, object_data: bytes, parentObjects: Iterable = None,
+                  parentFacts: Iterable = None, parentHyps: Iterable = None,
+                  metadata: Dict = None, encoding: str = None) -> int:
         """Adds an object to the object list
 
             returns the object id
         """
-        resp = super().addObject(object_data,
-                                 self.__tracker_.name,
-                                 parentObjects, parentFacts, parentHyps,
-                                 metadata, encoding)
+        resp = super()._addObject(object_data,
+                                  self.__tracker_.name,
+                                  parentObjects, parentFacts, parentHyps,
+                                  metadata, encoding)
 
         return resp.result.object_id
 
-    def addFact(self, fact, yesreally=False):
+    def addFact(self, fact: Fact, yesreally: bool = False) -> None:
         """Adds an item to the fact table
 
             Args:
@@ -737,9 +759,9 @@ class PlayerConsole(ConsoleInterface):
             raise ValueError(("Adding a fact based on a hypothesis, requires "
                               "the 'yesreally' argument to be set to True"))
 
-        super().addFact(fact, self.__tracker_.name)
+        super()._addFact(fact, self.__tracker_.name)
 
-    def addHyp(self, hyp):
+    def addHyp(self, hyp: Fact) -> None:
         """Adds an item to the hyp table
 
             Args:
@@ -751,4 +773,4 @@ class PlayerConsole(ConsoleInterface):
         """
 
         hyp._taint()
-        super().addHyp(hyp, self.__tracker_.name)
+        super()._addHyp(hyp, self.__tracker_.name)
