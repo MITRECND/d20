@@ -1,7 +1,7 @@
 import logging as origLogging
 import sys
 
-from typing import Optional, Set, Type
+from typing import Optional, Set
 
 
 default_log_format: str = "%(message)s"
@@ -10,7 +10,7 @@ debug_log_format: str = ('%(levelname) -10s %(asctime)s %(name) '
 
 DEFAULT_LEVEL: int = origLogging.INFO
 SUPPRESS_LEVEL: int = origLogging.ERROR
-Logger: Type[origLogging.Logger] = origLogging.Logger
+Logger = origLogging.Logger
 
 
 class logging:
