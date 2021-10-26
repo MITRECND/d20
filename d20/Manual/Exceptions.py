@@ -33,10 +33,17 @@ class NotFoundError(Exception):
     """
 
 
+class RPCTimeoutError(Exception):
+    """Exception to indicate a timeout occurred when waiting
+       for a RPCResponse"""
+
+
 __all__ = ["WaitTimeoutError",
            "StreamTimeoutError",
            "PlayerCreationError",
            "DuplicateObjectError",
            "TemporaryDirectoryError",
            "ConsoleError",
-           "NotFoundError"]
+           "NotFoundError",
+           "RPCTimeoutError"
+           ]

@@ -7,7 +7,7 @@ from requests.adapters import HTTPAdapter
 from requests import Session
 
 from d20.Manual.Logger import logging
-from d20.Manual.Exceptions import (ConsoleError,
+from d20.Manual.Exceptions import (ConsoleError, RPCTimeoutError,
                                    WaitTimeoutError)
 from d20.Manual.Facts import resolveFacts
 from d20.Manual.RPC import (RPCClient, RPCResponseStatus,
@@ -721,7 +721,10 @@ class PlayerConsole(ConsoleInterface):
                                                   'last_fact': last_fact})
 
         self.setWaiting()
-        resp = self._rpc.waitForResponse(msg_id, timeout)
+        try:
+            resp = self._rpc.waitForResponse(msg_id, timeout)
+        except RPCTimeoutError:
+            pass
         self.setRunning()
 
         if resp is not None:
