@@ -64,20 +64,20 @@ class TestConsoleInterface(unittest.TestCase):
         )
 
         with self.assertRaises(ValueError):
-            console.addObject(
+            console._addObject(
                 b'data', 'creator-test', 1, None, None, None, None)
 
         with self.assertRaises(ValueError):
-            console.addObject(
+            console._addObject(
                 b'data', 'creator-test', None, 1, None, None, None)
 
         with self.assertRaises(ValueError):
-            console.addObject(
+            console._addObject(
                 b'data', 'creator-test', None, None, 1, None, None)
 
         self.rpcClient.sendAndWait = mock.Mock(
             return_value=RPCResponse(0, RPCResponseStatus.ok))
-        console.addObject(
+        console._addObject(
             b'data', 'creator-test', None, None, None, dict(), None
         )
 
@@ -85,7 +85,7 @@ class TestConsoleInterface(unittest.TestCase):
             self.rpcClient.sendAndWait = mock.Mock(
                 return_value=RPCResponse(
                     0, RPCResponseStatus.error, reason="Foo"))
-            console.addObject(
+            console._addObject(
                 b'data', 'creator-test', None, None, None, dict(), None
             )
 
