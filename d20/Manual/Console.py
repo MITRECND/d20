@@ -19,7 +19,7 @@ from d20.Manual.Logger import Logger
 from d20.Manual.Temporary import PlayerDirectoryHandler
 from d20.Manual.RPC import RPCResponse
 from d20.Manual.Facts import Fact
-from d20.Manual.Trackers import BackStoryTracker, NPCTracker, PlayerTracker
+import d20.Manual.Trackers as Tracker
 
 LOGGER: Logger = logging.getLogger(__name__)
 
@@ -303,7 +303,7 @@ class BackStoryConsole(ConsoleInterface):
                          asyncData=kwargs['asyncData'],
                          config=kwargs.get('config'))
 
-        self.__tracker_: BackStoryTracker = kwargs['tracker']
+        self.__tracker_: Tracker.BackStoryTracker = kwargs['tracker']
 
     @property
     def memory(self) -> Dict:
@@ -370,7 +370,7 @@ class NPCConsole(ConsoleInterface):
                          asyncData=kwargs['asyncData'],
                          config=kwargs.get('config'))
 
-        self.__tracker_: NPCTracker = kwargs['tracker']
+        self.__tracker_: Tracker.NPCTracker = kwargs['tracker']
 
     @property
     def memory(self) -> Dict:
@@ -438,7 +438,7 @@ class PlayerConsole(ConsoleInterface):
                          config=kwargs.get('config', None))
 
         self.__tainted_: bool = kwargs['tainted']
-        self.__tracker_: PlayerTracker = kwargs['tracker']
+        self.__tracker_: Tracker.PlayerTracker = kwargs['tracker']
 
     @property
     def id(self) -> Tuple[str, Optional[str]]:
