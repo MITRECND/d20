@@ -1,7 +1,7 @@
 import os
 
 from d20.Manual.Logger import logging
-from d20.Manual.Registration import BackStoryRegistrationForm, RegistrationForm
+from d20.Manual.Registration import BackStoryRegistrationForm
 from d20.Manual.Utils import loadExtras
 from d20.version import GAME_ENGINE_VERSION
 from d20.Manual.Facts import Fact, getFactClass
