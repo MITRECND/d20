@@ -59,9 +59,12 @@ def verifyNPCs(extra_npcs: List[str], config: Configuration) -> List[NPC]:
 def loadNPC(npc_class: Type[Tnpc], **kwargs: str) -> None:
     reg: RegistrationForm = RegistrationForm(**kwargs)
     ev: str = GAME_ENGINE_VERSION
-    if reg.engine_version > ev:
+    if reg.engine_version is not None and reg.engine_version > ev:
         raise ValueError("NPC %s expects version %s or newer"
                          % (reg.name, reg.engine_version))
+
+    if reg.name is None:  # RX: Hopefully this is an appropriate way to handle
+        raise ValueError("NPC does not have a name")
 
     global NPCS
     clsname: str = npc_class.__qualname__
