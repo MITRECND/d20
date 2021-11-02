@@ -6,22 +6,25 @@ import shutil
 from d20.Manual.Logger import logging
 from d20.Manual.Exceptions import TemporaryDirectoryError
 
-TEMPORARY_DEFAULT = "/tmp/d20"
-LOGGER = logging.getLogger(__name__)
+from typing import Optional, Union
+from d20.Manual.Logger import Logger
+
+TEMPORARY_DEFAULT: str = "/tmp/d20"
+LOGGER: Logger = logging.getLogger(__name__)
 
 
 class TemporaryHandler:
-    temporary_base = TEMPORARY_DEFAULT
+    temporary_base: str = TEMPORARY_DEFAULT
 
-    def __init__(self, temporary=None):
-        self.base_exists = False
+    def __init__(self, temporary: Optional[str] = None):
+        self.base_exists: bool = False
 
         if temporary is not None:
             TemporaryHandler.temporary_base = temporary
-            self.temporary_base = TemporaryHandler.temporary_base
+            self.temporary_base: str = TemporaryHandler.temporary_base
 
-        self.objects_path = os.path.join(self.temporary_base, 'objects')
-        self.players_path = os.path.join(self.temporary_base, 'players')
+        self.objects_path: str = os.path.join(self.temporary_base, 'objects')
+        self.players_path: str = os.path.join(self.temporary_base, 'players')
 
         if os.path.exists(self.temporary_base):
             if not os.path.isdir(self.temporary_base):
@@ -57,7 +60,7 @@ class TemporaryHandler:
                 ("Unable to create temporary players "
                     "directory"))
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         # Delete objects directory
         try:
             if (os.path.exists(self.objects_path)
@@ -89,7 +92,7 @@ class TemporaryHandler:
                     % (self.temporary_base))
 
     @staticmethod
-    def genPath(*args):
+    def genPath(*args: str) -> str:
         return os.path.join(TemporaryHandler.temporary_base, *args)
 
 
@@ -101,8 +104,8 @@ class TemporaryObjectOnDisk:
         consistent location of the files to prevent duplication of effort
         and requiring individual players managing it themselves
     """
-    def __init__(self, id, data, **kwargs):
-        self.base = TemporaryHandler.genPath('objects')
+    def __init__(self, id: int, data: Union[str, bytes], **kwargs) -> None:
+        self.base: str = TemporaryHandler.genPath('objects')
         (handle, self._path) = \
             tempfile.mkstemp(prefix='object-%d.' % (id), dir=self.base)
 
@@ -116,7 +119,7 @@ class TemporaryObjectOnDisk:
             f.write(wdata)
 
     @property
-    def path(self):
+    def path(self) -> str:
         return self._path
 
 
@@ -125,12 +128,12 @@ class TemporaryObjectStream:
 
         This class returns an instance of io.BytesIO of the object
     """
-    def __init__(self, id, data, **kwargs):
-        self.data = data
-        self.id = id
+    def __init__(self, id: int, data: bytes, **kwargs) -> None:
+        self.data: bytes = data
+        self.id: int = id
 
     @property
-    def stream(self):
+    def stream(self) -> io.BytesIO:
         return io.BytesIO(self.data)
 
 
@@ -140,12 +143,13 @@ class PlayerDirectoryHandler:
         This class provides an abstraction of directory setups for players
         so they don't have to guess or set it up themselves
     """
-    def __init__(self, id, isPlayer, **kwargs):
-        self.id = id
-        self.isPlayer = isPlayer
-        player = 'p' if isPlayer else 'n'
-        self.base = TemporaryHandler.genPath('players', '%s-%d' % (player, id))
-        self._myDir = None
+    def __init__(self, id: int, isPlayer: bool, **kwargs) -> None:
+        self.id: int = id
+        self.isPlayer: bool = isPlayer
+        player: str = 'p' if isPlayer else 'n'
+        self.base: str = TemporaryHandler.genPath('players',
+                                                  '%s-%d' % (player, id))
+        self._myDir: Optional[str] = None
 
         # Create players directory
         try:
@@ -158,9 +162,9 @@ class PlayerDirectoryHandler:
                  "directory"))
 
     @property
-    def myDir(self):
+    def myDir(self) -> str:
         if self._myDir is None:
-            p = os.path.join(self.base, 'tmp')
+            p: str = os.path.join(self.base, 'tmp')
             try:
                 os.mkdir(p)
             except FileExistsError:
@@ -174,6 +178,6 @@ class PlayerDirectoryHandler:
 
         return self._myDir
 
-    def tempdir(self):
-        newdir = tempfile.mkdtemp(dir=self.base)
+    def tempdir(self) -> str:
+        newdir: str = tempfile.mkdtemp(dir=self.base)
         return newdir
