@@ -51,9 +51,9 @@ class EntityType(Enum):
 
 
 class Entity:
-    def __init__(self, entity_type: int, rpc_id: int, id: int,
+    def __init__(self, entity_type: EntityType, rpc_id: int, id: int,
                  clone_id: Optional[int] = None) -> None:
-        self.entity_type: int = entity_type
+        self.entity_type: EntityType = entity_type
         self.rpcClient: int = rpc_id
         self.id: int = id
         self.clone: Optional[int] = clone_id
@@ -194,7 +194,7 @@ class RPCResponse:
 class RPCClient:
     client_id: int = 0
 
-    def __init__(self, server_queue: queue.Queue, entity_type: int,
+    def __init__(self, server_queue: queue.Queue, entity_type: EntityType,
                  entity_id: int, clone_id: Optional[int] = None) -> None:
         self.server_queue: queue.Queue = server_queue
         self.client_queue: queue.Queue = queue.Queue()
@@ -494,7 +494,7 @@ class RPCServer:
         del self.streams[request.id]
         self.sendResponse(msg, RPCResponseStatus.ok)
 
-    def createClient(self, entity_type: int, entity_id: int,
+    def createClient(self, entity_type: EntityType, entity_id: int,
                      clone_id: Optional[int] = None) -> RPCClient:
         LOGGER.debug("Generating RPC Client")
         client: RPCClient = RPCClient(self.server_queue, entity_type,
