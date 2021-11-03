@@ -6,23 +6,19 @@ from d20.Manual.Logger import logging
 
 from typing import Optional, Dict, List, Type, Callable
 from d20.Manual.Logger import Logger
-from d20.NPCS import Tnpc
-from d20.BackStories import Tbackstory
-from d20.Players import Tplayer
-from d20.Screens import Tscreen
 from d20.Manual.Console import PlayerConsole, NPCConsole, BackStoryConsole
 
 
 LOGGER: Logger = logging.getLogger(__name__)
 
 
-def registerNPC(*args, **kwargs: str) -> Callable[..., Type[Tnpc]]:
+def registerNPC(*args, **kwargs: str) -> Callable[..., Type['NPCTemplate']]:
     """A decorator for registering an NPC
 
         This decorator expects keyword arguments that match up with the
         RegistrationForm class from d20.Manual.Registration
     """
-    def _registerNPC(cls: Type[Tnpc]) -> Type[Tnpc]:
+    def _registerNPC(cls: Type[NPCTemplate]) -> Type[NPCTemplate]:
         LOGGER.debug("Registering NPC %s"
                      % (cls.__qualname__))
         loadNPC(cls, **kwargs)
@@ -30,13 +26,17 @@ def registerNPC(*args, **kwargs: str) -> Callable[..., Type[Tnpc]]:
     return _registerNPC
 
 
-def registerBackStory(*args, **kwargs: str) -> Callable[..., Type[Tbackstory]]:
+def registerBackStory(*args,
+                      **kwargs: str) -> Callable[...,
+                                                 Type['BackStoryTemplate']]:
     """A decorator for registering an BackStory
 
         This decorator expects keyword arguments that match up with the
         BackStoryRegistrationForm class from d20.Manual.Registration
     """
-    def _registerBackStory(cls: Type[Tbackstory]) -> Type[Tbackstory]:
+    def _registerBackStory(
+                cls: Type[BackStoryTemplate]
+                ) -> Type[BackStoryTemplate]:
         LOGGER.debug("Registering BackStory %s"
                      % (cls.__qualname__))
         loadBackStory(cls, **kwargs)
@@ -44,13 +44,14 @@ def registerBackStory(*args, **kwargs: str) -> Callable[..., Type[Tbackstory]]:
     return _registerBackStory
 
 
-def registerPlayer(*args, **kwargs: str) -> Callable[..., Type[Tplayer]]:
+def registerPlayer(*args,
+                   **kwargs: str) -> Callable[..., Type['PlayerTemplate']]:
     """A decorator for registering a Player
 
         This decorator expects keyword arguments that match up with the
         RegistrationForm class from d20.Manual.Registration
     """
-    def _registerPlayer(cls: Type[Tplayer]) -> Type[Tplayer]:
+    def _registerPlayer(cls: Type[PlayerTemplate]) -> Type[PlayerTemplate]:
         LOGGER.debug("Registering Player %s"
                      % (cls.__qualname__))
         loadPlayer(cls, **kwargs)
@@ -58,13 +59,14 @@ def registerPlayer(*args, **kwargs: str) -> Callable[..., Type[Tplayer]]:
     return _registerPlayer
 
 
-def registerScreen(*args, **kwargs: str) -> Callable[..., Type[Tscreen]]:
+def registerScreen(*args,
+                   **kwargs: str) -> Callable[..., Type['ScreenTemplate']]:
     """A decorator for registering a Screen
 
         This decorator expects kwargs which cooresponds to the
         ScreenRegistrationForm class
     """
-    def _registerScreen(cls: Type[Tscreen]) -> Type[Tscreen]:
+    def _registerScreen(cls: Type[ScreenTemplate]) -> Type[ScreenTemplate]:
         LOGGER.debug("Registering Screen %s"
                      % (cls.__qualname__))
         loadScreen(cls, **kwargs)

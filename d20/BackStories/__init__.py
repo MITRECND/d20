@@ -9,7 +9,7 @@ from d20.Manual.Facts import Fact, getFactClass
 from typing import List, Dict, Set, TypeVar, Type, Optional
 from d20.Manual.Logger import Logger
 from d20.Manual.Config import Configuration, EntityConfiguration
-Tbackstory = TypeVar('Tbackstory', bound='BackStory')
+from d20.Manual.Templates import BackStoryTemplate
 
 LOADED: Set = set()
 STORIES: Dict = dict()
@@ -17,14 +17,15 @@ LOGGER: Logger = logging.getLogger(__name__)
 
 
 class BackStory:
-    def __init__(self, name: str, cls: Type[Tbackstory],
+    def __init__(self, name: str, cls: Type[BackStoryTemplate],
                  registration: BackStoryRegistrationForm) -> None:
         self.name: str = name
-        self.cls: Type[Tbackstory] = cls
+        self.cls: Type[BackStoryTemplate] = cls
         self.registration: BackStoryRegistrationForm = registration
         self.config: Optional[EntityConfiguration] = None
 
 
+# RX: Check backstory fact Dict or list?
 def resolveBackStoryFacts(backstory_facts: Dict) -> List:
     """Takes list of dicts that are then turned into fact class instances
 
@@ -86,7 +87,7 @@ def verifyBackStories(extra_backstories: List[str],
     return list(STORIES.values())
 
 
-def loadBackStory(backstory_class: Type[Tbackstory], **kwargs: str) -> None:
+def loadBackStory(backstory_class: Type[BackStoryTemplate], **kwargs: str) -> None:
     reg: BackStoryRegistrationForm = BackStoryRegistrationForm(**kwargs)
     ev: str = GAME_ENGINE_VERSION
     if reg.engine_version is not None and reg.engine_version > ev:

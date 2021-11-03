@@ -8,7 +8,8 @@ from d20.version import GAME_ENGINE_VERSION
 from typing import List, Dict, Set, TypeVar, Type, Optional
 from d20.Manual.Logger import Logger
 from d20.Manual.Config import Configuration, EntityConfiguration
-Tscreen = TypeVar('Tscreen', bound='Screen')
+from d20.Manual.Templates import ScreenTemplate
+
 
 LOADED: Set[str] = set()
 SCREENS: Dict[str, 'Screen'] = dict()
@@ -16,10 +17,10 @@ LOGGER: Logger = logging.getLogger(__name__)
 
 
 class Screen:
-    def __init__(self, name: str, cls: Type[Tscreen],
+    def __init__(self, name: str, cls: Type[ScreenTemplate],
                  registration: ScreenRegistrationForm) -> None:
         self.name: str = name
-        self.cls: Type[Tscreen] = cls
+        self.cls: Type[ScreenTemplate] = cls
         self.registration: ScreenRegistrationForm = registration
         self.config: Optional[EntityConfiguration] = None
 
@@ -58,7 +59,7 @@ def verifyScreens(extra_screens: List[str],
     return dict(screens)
 
 
-def loadScreen(screen_class: Type[Tscreen], **kwargs: str) -> None:
+def loadScreen(screen_class: Type[ScreenTemplate], **kwargs: str) -> None:
     reg: ScreenRegistrationForm = ScreenRegistrationForm(**kwargs)
     ev: str = GAME_ENGINE_VERSION
     if reg.engine_version > ev:
