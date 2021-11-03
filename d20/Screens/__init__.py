@@ -5,7 +5,7 @@ from d20.Manual.Registration import ScreenRegistrationForm
 from d20.Manual.Utils import loadExtras
 from d20.version import GAME_ENGINE_VERSION
 
-from typing import List, Dict, Set, TypeVar, Type, Optional
+from typing import List, Dict, Set, Type, Optional
 from d20.Manual.Logger import Logger
 from d20.Manual.Config import Configuration, EntityConfiguration
 from d20.Manual.Templates import ScreenTemplate
@@ -65,6 +65,9 @@ def loadScreen(screen_class: Type[ScreenTemplate], **kwargs: str) -> None:
     if reg.engine_version > ev:
         raise ValueError("Player %s expects version %s or newer"
                          % (reg.name, reg.engine_version))
+
+    if reg.name is None:  # RX: Hopefully this is an appropriate way to handle
+        raise ValueError("NPC does not have a name")
 
     global SCREENS
     clsname: str = screen_class.__qualname__

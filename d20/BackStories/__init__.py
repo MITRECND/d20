@@ -6,7 +6,7 @@ from d20.Manual.Utils import loadExtras
 from d20.version import GAME_ENGINE_VERSION
 from d20.Manual.Facts import Fact, getFactClass
 
-from typing import List, Dict, Set, TypeVar, Type, Optional
+from typing import List, Dict, Set, Type, Optional
 from d20.Manual.Logger import Logger
 from d20.Manual.Config import Configuration, EntityConfiguration
 from d20.Manual.Templates import BackStoryTemplate
@@ -87,7 +87,8 @@ def verifyBackStories(extra_backstories: List[str],
     return list(STORIES.values())
 
 
-def loadBackStory(backstory_class: Type[BackStoryTemplate], **kwargs: str) -> None:
+def loadBackStory(backstory_class: Type[BackStoryTemplate],
+                  **kwargs: str) -> None:
     reg: BackStoryRegistrationForm = BackStoryRegistrationForm(**kwargs)
     ev: str = GAME_ENGINE_VERSION
     if reg.engine_version is not None and reg.engine_version > ev:
