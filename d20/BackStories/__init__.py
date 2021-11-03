@@ -6,10 +6,11 @@ from d20.Manual.Utils import loadExtras
 from d20.version import GAME_ENGINE_VERSION
 from d20.Manual.Facts import Fact, getFactClass
 
-from typing import List, Dict, Set, Type, Optional
+from typing import TYPE_CHECKING, List, Dict, Set, Type, Optional
 from d20.Manual.Logger import Logger
 from d20.Manual.Config import Configuration, EntityConfiguration
-from d20.Manual.Templates import BackStoryTemplate
+if TYPE_CHECKING:
+    from d20.Manual.Templates import BackStoryTemplate
 
 LOADED: Set = set()
 STORIES: Dict = dict()
@@ -17,10 +18,10 @@ LOGGER: Logger = logging.getLogger(__name__)
 
 
 class BackStory:
-    def __init__(self, name: str, cls: Type[BackStoryTemplate],
+    def __init__(self, name: str, cls: Type['BackStoryTemplate'],
                  registration: BackStoryRegistrationForm) -> None:
         self.name: str = name
-        self.cls: Type[BackStoryTemplate] = cls
+        self.cls: Type['BackStoryTemplate'] = cls
         self.registration: BackStoryRegistrationForm = registration
         self.config: Optional[EntityConfiguration] = None
 
@@ -87,7 +88,7 @@ def verifyBackStories(extra_backstories: List[str],
     return list(STORIES.values())
 
 
-def loadBackStory(backstory_class: Type[BackStoryTemplate],
+def loadBackStory(backstory_class: Type['BackStoryTemplate'],
                   **kwargs: str) -> None:
     reg: BackStoryRegistrationForm = BackStoryRegistrationForm(**kwargs)
     ev: str = GAME_ENGINE_VERSION

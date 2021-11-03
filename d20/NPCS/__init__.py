@@ -6,10 +6,11 @@ from d20.Manual.Registration import RegistrationForm
 from d20.Manual.Utils import loadExtras
 from d20.version import GAME_ENGINE_VERSION
 
-from typing import List, Dict, Set, TypeVar, Type, Optional
+from typing import TYPE_CHECKING, List, Dict, Set, Type, Optional
 from d20.Manual.Logger import Logger
 from d20.Manual.Config import EntityConfiguration
-from d20.Manual.Templates import NPCTemplate
+if TYPE_CHECKING:
+    from d20.Manual.Templates import NPCTemplate
 
 
 LOADED: Set[str] = set()
@@ -18,10 +19,10 @@ LOGGER: Logger = logging.getLogger(__name__)
 
 
 class NPC:
-    def __init__(self, name: str, cls: Type[NPCTemplate],
+    def __init__(self, name: str, cls: Type['NPCTemplate'],
                  registration: RegistrationForm) -> None:
         self.name: str = name
-        self.cls: Type[NPCTemplate] = cls
+        self.cls: Type['NPCTemplate'] = cls
         self.registration: RegistrationForm = registration
         self.config: Optional[EntityConfiguration] = None
 
@@ -56,7 +57,7 @@ def verifyNPCs(extra_npcs: List[str], config: Configuration) -> List[NPC]:
     return list(NPCS.values())
 
 
-def loadNPC(npc_class: Type[NPCTemplate], **kwargs: str) -> None:
+def loadNPC(npc_class: Type['NPCTemplate'], **kwargs: str) -> None:
     reg: RegistrationForm = RegistrationForm(**kwargs)
     ev: str = GAME_ENGINE_VERSION
     if reg.engine_version is not None and reg.engine_version > ev:
