@@ -1,9 +1,13 @@
 import os
 import importlib.machinery
 import importlib.util
+from importlib.abc import Loader
+
+from typing import List, Dict, Optional, Set
 
 
-def loadExtras(paths, loaded, exclude=None, exclude_full=None):
+def loadExtras(paths: List[str], loaded: Set, exclude=None,
+               exclude_full: Optional[Set] = None) -> None:
     """Initialization method to load extra components
 
         This function, optionally using external directory paths will
@@ -11,7 +15,7 @@ def loadExtras(paths, loaded, exclude=None, exclude_full=None):
         components in those files via the decorators and other functions
     """
 
-    files = dict()
+    files: Dict = dict()
 
     # Get all files in these directories
     for path in paths:
@@ -41,9 +45,17 @@ def loadExtras(paths, loaded, exclude=None, exclude_full=None):
                 name = name[:-3]
 
             try:
-                spec = importlib.util.spec_from_file_location(name, fullpath)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
+                spec: Optional[importlib.machinery.ModuleSpec] = \
+                    importlib.util.spec_from_file_location(name, fullpath)
+                if spec is not None and spec.loader is not None:
+                    module = importlib.util.module_from_spec(spec)
+                    if isinstance(spec.loader, Loader):
+                        spec.loader.exec_module(module)
+                    else:
+                        raise TypeError
+                else:
+                    raise TypeError
+
             except (TypeError, AttributeError):
                 raise
             except Exception as e:
