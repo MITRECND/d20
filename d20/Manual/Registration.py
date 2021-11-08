@@ -185,7 +185,7 @@ class BackStoryRegistrationForm:
         self.creator: Optional[str] = None
         self.version: Optional[str] = None
         self.engine_version: Optional[str] = None
-        self.category: Optional[str] = None
+        self.category: str
         self.default_weight: int = 1
         self._interests: Set = set()
         self.interests: Iterable

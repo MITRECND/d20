@@ -16,7 +16,6 @@ from d20.Manual.Facts.Fields import (SimpleField,
 from d20.Manual.BattleMap import FactTable, FileObject
 
 from typing import Optional, Dict, OrderedDict, Tuple, Union, Set, List
-
 from d20.Manual.GameMaster import GameMaster
 
 

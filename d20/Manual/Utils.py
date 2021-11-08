@@ -49,10 +49,8 @@ def loadExtras(paths: List[str], loaded: Set, exclude=None,
                     importlib.util.spec_from_file_location(name, fullpath)
                 if spec is not None and spec.loader is not None:
                     module = importlib.util.module_from_spec(spec)
-                    if isinstance(spec.loader, Loader):
-                        spec.loader.exec_module(module)
-                    else:
-                        raise TypeError
+                    # RX: spec.loader apparently _loaderprotocol?
+                    spec.loader.exec_module(module)  # type: ignore
                 else:
                     raise TypeError
 

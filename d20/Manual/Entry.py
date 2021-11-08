@@ -12,14 +12,14 @@ from d20.Manual.Config import Configuration
 from d20.Manual.Shell import ShellCmd
 from d20.Players import verifyPlayers
 from d20.NPCS import verifyNPCs
-from d20.BackStories import verifyBackStories
+from d20.BackStories import BackStory, verifyBackStories
 from d20.Screens import verifyScreens
 from d20.Actions import (setupActionLoader, ACTION_INVENTORY)
 from d20.Manual.GameMaster import GameMaster
 from d20.Manual.Options import _empty
 
 
-from typing import Any, List, Dict, Union, TYPE_CHECKING
+from typing import Any, List, Dict, Union
 from d20.Players import Player
 from d20.NPCS import NPC
 from d20.Screens import Screen
@@ -37,11 +37,13 @@ def __fix_default(value: Any) -> str:
         return str(value)
 
 
-def __generate_config_file(args: argparse.Namespace, config: Configuration) -> None: 
+def __generate_config_file(args: argparse.Namespace,
+                           config: Configuration) -> None:
 
     players: List[Player] = verifyPlayers(args.extra_players, config)
     npcs: List[NPC] = verifyNPCs(args.extra_npcs, config)
-    backstories: List[NPC] = verifyBackStories(args.extra_backstories, config)
+    backstories: List[BackStory] = verifyBackStories(args.extra_backstories,
+                                                     config)
     screens: Dict[str, Screen] = verifyScreens(args.extra_screens, config)
     # actions are handled by the setupActionLoader and inclusion in other code
 
@@ -100,9 +102,11 @@ def __setup(args: argparse.Namespace, console: bool = False) -> Configuration:
 
 
 def main() -> None:
-    parser: argparse.ArgumentParser = argparse.ArgumentParser(description="Roll the dice")
+    parser: argparse.ArgumentParser = \
+        argparse.ArgumentParser(description="Roll the dice")
 
-    input_group: argparse._MutuallyExclusiveGroup = parser.add_mutually_exclusive_group()
+    input_group: argparse._MutuallyExclusiveGroup = \
+        parser.add_mutually_exclusive_group()
 
     input_group.add_argument(
         "-f", "--file", type=str, default=None,
@@ -117,7 +121,8 @@ def main() -> None:
         help=("A path to a yaml/json file with facts to "
               "present to backstories"))
 
-    information_group: argparse._ArgumentGroup = parser.add_argument_group('Informational')
+    information_group: argparse._ArgumentGroup = \
+        parser.add_argument_group('Informational')
 
     information_group.add_argument(
         "-l", "--list-players", action="store_true",
@@ -229,13 +234,13 @@ def main() -> None:
 
     if args.list_backstories:
         print("Registered BackStories:")
-        backstories: List[NPC] = verifyBackStories(args.extra_backstories, 
-                                                   Config)  # UNSURE
+        backstories: List[BackStory] = \
+            verifyBackStories(args.extra_backstories, Config) 
         if len(backstories) == 0:
             print("\tNo BackStories")
         else:
-            for npc in backstories:
-                print("\t%s" % (npc.name))
+            for backstory in backstories:
+                print("\t%s" % (backstory.name))
         sys.exit(0)
 
     if args.list_screens:
@@ -260,15 +265,19 @@ def main() -> None:
                 print("\tGame Engine: %s"
                       % (player.registration.engine_version))
 
-                desc_lines: List[str] = textwrap.wrap(player.registration.description,
-                                                      width=50)
-                if len(desc_lines) > 1:
-                    prefix: str = "\t%13s" % (' ')
-                    print("\tDescription: %s" % (desc_lines.pop(0)))
-                    print(prefix + (prefix.join(desc_lines)))
+                if player.registration.description is not None:
+                    desc_lines: List[str] = \
+                        textwrap.wrap(player.registration.description,
+                                      width=50)
+                    if len(desc_lines) > 1:
+                        prefix: str = "\t%13s" % (' ')
+                        print("\tDescription: %s" % (desc_lines.pop(0)))
+                        print(prefix + (prefix.join(desc_lines)))
+                    else:
+                        print("\tDescription: %s"
+                              % (player.registration.description))
                 else:
-                    print("\tDescription: %s"
-                          % (player.registration.description))
+                    print("Missing player description")
                 # print("\tInterests:")
                 # for ft in sorted(list(player.registration.interests)):
                 #     print("\t\t%s" % (str(ft)))
@@ -282,8 +291,8 @@ def main() -> None:
                             list(player.registration.facts_generated)):
                         print("\t\t%s" % (str(fg)))
                 if isinstance(player.registration.help, str):
-                    help_lines: List[str] = textwrap.wrap(player.registration.help,
-                                               width=60)
+                    help_lines: List[str] = \
+                        textwrap.wrap(player.registration.help, width=60)
                     help_msg: str = "\n\t\t".join(help_lines)
                     print("\n\tHelp:\n\t\t%s" % (help_msg))
 
@@ -524,7 +533,8 @@ def play(**kwargs: Dict[str, Any]) -> Any:
         for obj in gm.objects:
             filename: str = obj.metadata.get('filename', 'nofilename')
             creator: str = obj._creator_
-            outname: str = "%d-%s-%s-%s" % (obj.id, creator, obj.hash, filename)
+            outname: str = "%d-%s-%s-%s" % (obj.id, creator, obj.hash,
+                                            filename)
             with open(os.path.join(args.dump_objects, outname), 'wb') as f:
                 f.write(obj.data)
 
@@ -534,7 +544,8 @@ def play(**kwargs: Dict[str, Any]) -> Any:
 
 
 def shellmain() -> None:
-    parser: argparse.ArgumentParser = argparse.ArgumentParser(description="d20 Interactive Console")
+    parser: argparse.ArgumentParser = \
+        argparse.ArgumentParser(description="d20 Interactive Console")
     parser.add_argument("statefile", action="store",
                         help="Location/file to restore state")
     parser.add_argument("-c", "--config", type=str, default=None,
