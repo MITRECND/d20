@@ -7,7 +7,8 @@ from enum import Enum
 from d20.Manual.Logger import logging
 from d20.Manual.Exceptions import StreamTimeoutError, RPCTimeoutError
 
-from typing import Callable, Optional, Dict, Union, Set, Iterable
+from typing import Callable, Optional, Dict, Union, Set, Iterable, List, \
+    Tuple, Type
 from d20.Manual.Logger import Logger
 
 LOGGER: Logger = logging.getLogger(__name__)
@@ -370,7 +371,8 @@ class RPCServer:
         LOGGER.debug("Registering Handler for %s procedure" % command)
         self.handlers[command] = fn
 
-    def registerHandlers(self, handlers) -> None:
+    def registerHandlers(self,
+                         handlers: List[Tuple[RPCCommands, Callable]]) -> None:
         for (command, fn) in handlers:
             self.registerHandler(command, fn)
 
@@ -399,7 +401,10 @@ class RPCServer:
         self.registerStartStreamHandler(command, start_fn)
         self.registerStopStreamHandler(command, stop_fn)
 
-    def registerStreamHandlers(self, handlers) -> None:
+    def registerStreamHandlers(self,
+                               handlers: List[Tuple[RPCStreamCommands,
+                                                    Callable,
+                                                    Callable]]) -> None:
         for (command, start_fn, stop_fn) in handlers:
             self.registerStreamHandler(command, start_fn, stop_fn)
 
@@ -422,7 +427,7 @@ class RPCServer:
         start: float = time.time()
         while not self._stop:
             try:
-                msg: RPCRequest = self.server_queue.get_nowait()
+                msg: Type[RPCRequest] = self.server_queue.get_nowait()
                 start = time.time()
                 self._idleCount = 0
             except queue.Empty:
@@ -452,11 +457,13 @@ class RPCServer:
                              % (msg.command, msg.id, tstring, msg.entity.id))
 
             try:
-                command = msg.command
+                command: RPCCommands = msg.command
 
-                if command == RPCCommands.startStream:
+                if isinstance(msg, RPCStartStreamRequest) and \
+                        command == RPCCommands.startStream:
                     self.startStream(msg)
-                elif command == RPCCommands.stopStream:
+                elif isinstance(msg, RPCStopStreamRequest) and \
+                        command == RPCCommands.stopStream:
                     self.stopStream(msg)
                 else:
                     if command not in self.handlers:
@@ -470,29 +477,31 @@ class RPCServer:
     def stop(self) -> None:
         self._stop = True
 
-    def startStream(self, msg) -> None:
-        command = msg.stream.command
+    def startStream(self, msg: RPCStartStreamRequest) -> None:
+        command: RPCStreamCommands = msg.stream.command
         if command not in self.startStreamHandlers:
             raise RuntimeError("No start handler defined for stream function")
 
         self.startStreamHandlers[command](msg)
         self.streams[msg.id] = msg
 
-    def stopStream(self, msg) -> None:
-        stream_id = msg.args.stream_id
-        if stream_id not in self.streams:
-            pass  # TODO FIXME return error or something
+    def stopStream(self, msg: RPCStopStreamRequest) -> None:
+        if isinstance(msg.args, Namespace):
+            stream_id = msg.args.stream_id
+            if stream_id not in self.streams:
+                pass  # TODO FIXME return error or something
 
-        request = self.streams[stream_id]
-        command = request.stream.command
+            request = self.streams[stream_id]
+            command = request.stream.command
 
-        if command not in self.stopStreamHandlers:
-            raise RuntimeError("No stop handler defined for stream function")
+            if command not in self.stopStreamHandlers:
+                raise RuntimeError("No stop handler defined for stream \
+                                    function")
 
-        self.stopStreamHandlers[command](msg)
+            self.stopStreamHandlers[command](msg)
 
-        del self.streams[request.id]
-        self.sendResponse(msg, RPCResponseStatus.ok)
+            del self.streams[request.id]
+            self.sendResponse(msg, RPCResponseStatus.ok)
 
     def createClient(self, entity_type: EntityType, entity_id: int,
                      clone_id: Optional[int] = None) -> RPCClient:
