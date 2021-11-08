@@ -3,7 +3,7 @@ import cerberus
 
 from d20.Manual.Logger import logging
 
-from typing import Optional, Type, Tuple, Any, Dict
+from typing import Optional, Type, Tuple, Dict
 from d20.Manual.Logger import Logger
 
 LOGGER: Logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ class _empty:
 
 
 class Arguments:
-    def __init__(self, *args: Tuple, **kwargs: Any) -> None:
+    def __init__(self, *args: Tuple, **kwargs) -> None:
         self._schemaGenerator = CerberusSchemaGenerator()
 
         for arg in args:
@@ -57,7 +57,7 @@ class CerberusSchemaGenerator:
         self._schema: Dict = dict()
         self._docs: Dict = dict()
 
-    def python2CerberusType(self, type: Type[Any]) -> str:
+    def python2CerberusType(self, type) -> str:
         if type == str:
             return 'string'
         elif type == int:
@@ -82,8 +82,8 @@ class CerberusSchemaGenerator:
             raise TypeError("Unknown type")
 
     def add_argument(
-            self, name: str, type: Type[Any] = str, help: Optional[str] = None,
-            default=_empty, **kwargs) -> Any:
+            self, name: str, type=str, help: Optional[str] = None,
+            default=_empty, **kwargs) -> None:
 
         if name in self._docs:
             raise ValueError("Argument already exists")

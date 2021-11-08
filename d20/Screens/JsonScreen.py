@@ -6,14 +6,14 @@ from d20.Manual.Logger import logging
 import json
 import binascii
 
-from typing import Dict, Type, Optional, Any
+from typing import Dict, Type, Optional
 from d20.Manual.Logger import Logger
 
 LOGGER: Logger = logging.getLogger(__name__)
 
 
 class BytesEncoder(json.JSONEncoder):
-    def default(self, obj: Any) -> Any:
+    def default(self, obj: bytes):
         if isinstance(obj, bytes):
             try:
                 outstring: str = str(obj, 'utf-8')
@@ -48,40 +48,42 @@ class JSONScreen(ScreenTemplate):
         # objects - list of objects
         # options - any options passed from config
 
-    def filter(self) -> Dict[str, Dict]:
-        gameData: Dict[str, Any] = {'facts': dict(),
-                                    'hyps': dict()}
+    def filter(self) -> Dict:
+        gameData: Dict = {'facts': dict(),
+                          'hyps': dict()}
 
         if not self.options.get('exclude_objects', False):
             gameData['objects'] = list()
-            for obj in self.objects:
-                objdata: Dict[str, str] = obj._coreInfo
-                objdata.update(self.formatData(obj._creationInfo))
-                gameData['objects'].append(objdata)
+            if self.objects is not None:
+                for obj in self.objects:
+                    objdata: Dict[str, str] = obj._coreInfo
+                    objdata.update(self.formatData(obj._creationInfo))
+                    gameData['objects'].append(objdata)
 
-        for (_type, column) in self.facts.items():
-            if any(e in _type for e in self.exclusions):
-                continue
-            gameData['facts'][_type] = list()
-            for fact in column:
-                fact_info: Dict = fact._nonCoreFacts
-                if self.options.get('include_core_facts', False):
-                    fact_info.update(self.formatData(fact._coreFacts))
-                gameData['facts'][_type].append(fact_info)
+        if self.facts is not None and self.hyps is not None:
+            for (_type, column) in self.facts.items():
+                if any(e in _type for e in self.exclusions):
+                    continue
+                gameData['facts'][_type] = list()
+                for fact in column:
+                    fact_info: Dict = fact._nonCoreFacts
+                    if self.options.get('include_core_facts', False):
+                        fact_info.update(self.formatData(fact._coreFacts))
+                    gameData['facts'][_type].append(fact_info)
 
-        for (_type, column) in self.hyps.items():
-            if any(e in _type for e in self.exclusions):
-                continue
-            gameData['hyps'][_type] = list()
-            for hyp in column:
-                hyp_info: Dict = hyp._nonCoreFacts
-                if self.options.get('include_core_facts', False):
-                    hyp_info.update(self.formatData(hyp._coreFacts))
-                gameData['hyps'][_type].append(hyp_info)
+            for (_type, column) in self.hyps.items():
+                if any(e in _type for e in self.exclusions):
+                    continue
+                gameData['hyps'][_type] = list()
+                for hyp in column:
+                    hyp_info: Dict = hyp._nonCoreFacts
+                    if self.options.get('include_core_facts', False):
+                        hyp_info.update(self.formatData(hyp._coreFacts))
+                    gameData['hyps'][_type].append(hyp_info)
 
         return gameData
 
-    def present(self) -> Any:
+    def present(self) -> str:
         cls: Optional[Type[BytesEncoder]]
         if not self.options.get('convert_bytes', True):
             cls = None
@@ -92,6 +94,8 @@ class JSONScreen(ScreenTemplate):
             return json.dumps(self.filter(), cls=cls)
         except Exception:
             LOGGER.exception("Error attempting to JSON serialize game data")
+
+        return ""
 
     def formatData(self, data: Dict) -> Dict:
         return {key.strip('_'): value for (key, value) in data.items()}

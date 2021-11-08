@@ -19,7 +19,7 @@ from d20.Manual.GameMaster import GameMaster
 from d20.Manual.Options import _empty
 
 
-from typing import Any, List, Dict, Union
+from typing import List, Dict
 from d20.Players import Player
 from d20.NPCS import NPC
 from d20.Screens import Screen
@@ -28,7 +28,7 @@ from d20.Manual.Logger import Logger
 LOGGER: 'Logger' = logging.getLogger(__name__)
 
 
-def __fix_default(value: Any) -> str:
+def __fix_default(value) -> str:
     if isinstance(value, bool):
         return str(value).lower()
     elif isinstance(value, bytes):
@@ -235,7 +235,7 @@ def main() -> None:
     if args.list_backstories:
         print("Registered BackStories:")
         backstories: List[BackStory] = \
-            verifyBackStories(args.extra_backstories, Config) 
+            verifyBackStories(args.extra_backstories, Config)
         if len(backstories) == 0:
             print("\tNo BackStories")
         else:
@@ -312,7 +312,7 @@ def main() -> None:
         "generate_config_file"
     ]
 
-    arguments: Dict[str, Any] = vars(args)
+    arguments: Dict = vars(args)
     arguments.update({
         "_config": Config,
         "printable": True
@@ -322,14 +322,14 @@ def main() -> None:
             del arguments[argument]
 
     try:
-        results: Union[Any, None] = play(**arguments)
+        results = play(**arguments)
         print(results)
     except ValueError as e:
         print(str(e))
         sys.exit(1)
 
 
-def play(**kwargs: Dict[str, Any]) -> Any:
+def play(**kwargs: Dict):  # Return type depends on screen
     """play the game
 
     This method allows one to call d20 from another python program returning
@@ -484,7 +484,7 @@ def play(**kwargs: Dict[str, Any]) -> Any:
     else:
         Config = __setup(args)
 
-    save_state: Union[None, Any] = None
+    save_state = None
     if args.load_file is not None:
         with open(args.load_file, 'r') as f:
             save_state = yaml.load(f.read(), Loader=yaml.FullLoader)
@@ -516,7 +516,7 @@ def play(**kwargs: Dict[str, Any]) -> Any:
 
         gm.join()
 
-    results: Union[None, Any] = None
+    results = None
     if args.use_screen != "none":
         results = gm.provideData(
             args.use_screen,

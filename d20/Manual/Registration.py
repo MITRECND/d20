@@ -5,7 +5,7 @@ from d20.Manual.Facts import (isFactGroup,
                               resolveFacts)
 from d20.Manual.Options import Arguments
 
-from typing import Optional, List, Any, Dict, Set
+from typing import Optional, List, Dict, Set
 
 
 def _test_version_string(version: str) -> str:
@@ -25,7 +25,7 @@ class RegistrationForm:
         This class organizes player/npc metadata including what facts a
         player is interested in
     """
-    def __init__(self, *args, **kwargs: Any) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         self.name: Optional[str] = None
         self.description: Optional[str] = None
         self.creator: Optional[str] = None

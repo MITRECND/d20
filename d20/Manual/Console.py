@@ -14,7 +14,7 @@ from d20.Manual.RPC import (RPCClient, RPCResponseStatus,
                             RPCCommands,
                             RPCStreamCommands)
 
-from typing import List, Dict, Optional, Collection, Union, Any, Tuple
+from typing import List, Dict, Optional, Collection, Union, Tuple
 from d20.Manual.Logger import Logger
 from d20.Manual.Temporary import PlayerDirectoryHandler
 from d20.Manual.RPC import RPCResponse
@@ -44,7 +44,7 @@ class ConsoleInterface(object):
             config: The config for this console instance
 
     """
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, **kwargs) -> None:
         try:
             self._id: str = kwargs['id']
             self._cloneID: Optional[str] = kwargs.get('cloneID', None)
@@ -296,7 +296,7 @@ class BackStoryConsole(ConsoleInterface):
             backstorytracker: The internal tracker class for this backstory
 
     """
-    def __init__(self, **kwargs: Any):
+    def __init__(self, **kwargs):
         super().__init__(id=kwargs['id'],
                          directoryHandler=kwargs['directoryHandler'],
                          rpc_client=kwargs['rpc_client'],
@@ -363,7 +363,7 @@ class NPCConsole(ConsoleInterface):
             npctracker: The internal tracker class for this npc
 
     """
-    def __init__(self, **kwargs: Any):
+    def __init__(self, **kwargs):
         super().__init__(id=kwargs['id'],
                          directoryHandler=kwargs['directoryHandler'],
                          rpc_client=kwargs['rpc_client'],
@@ -429,7 +429,7 @@ class PlayerConsole(ConsoleInterface):
             config: The config for this console instance
             tracker: The internal tracker of a player
     """
-    def __init__(self, **kwargs: Any):
+    def __init__(self, **kwargs):
         super().__init__(id=kwargs['id'],
                          directoryHandler=kwargs['directoryHandler'],
                          rpc_client=kwargs['rpc_client'],
@@ -469,7 +469,7 @@ class PlayerConsole(ConsoleInterface):
     def getClones(self) -> None:
         pass
 
-    def getObject(self, object_id: int) -> Any:
+    def getObject(self, object_id: int):
         """Returns the object with the given id
         """
         resp: RPCResponse = self._rpc.sendAndWait(

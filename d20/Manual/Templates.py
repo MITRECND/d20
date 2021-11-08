@@ -60,7 +60,7 @@ def registerPlayer(*args,
 
 
 def registerScreen(*args,
-                   **kwargs: str) -> Callable[..., Type['ScreenTemplate']]:
+                   **kwargs) -> Callable[..., Type['ScreenTemplate']]:
     """A decorator for registering a Screen
 
         This decorator expects kwargs which cooresponds to the
@@ -216,7 +216,7 @@ class ScreenTemplate:
         if self.hyps is None:
             raise RuntimeError("'hyps' must be supplied in kwargs")
 
-    def filter(self) -> None:
+    def filter(self):
         """filter is meant to be used to provide a trimmed down view of data
         based on configuration provided by the user. This function should be
         called the present function.
@@ -228,7 +228,7 @@ class ScreenTemplate:
         """
         raise NotImplementedError("This method must be overriden by children")
 
-    def present(self) -> None:
+    def present(self):
         """present is meant to provide a printable string for user consumption.
         By convention it should call the filter function (above) before
         returning anything
