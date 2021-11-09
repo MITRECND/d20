@@ -5,12 +5,13 @@ import time
 import threading
 import asyncio
 import yaml
+from types import SimpleNamespace
 
 from d20.version import (
     GAME_ENGINE_VERSION_RAW,
     GAME_ENGINE_VERSION,
     parseVersion)
-from d20.Manual.Exceptions import (PlayerCreationError,
+from d20.Manual.Exceptions import (ConfigNotFoundError, PlayerCreationError,
                                    DuplicateObjectError,
                                    TemporaryDirectoryError)
 from d20.Manual.Logger import logging
@@ -24,7 +25,7 @@ from d20.Manual.BattleMap import (FactTable,
                                   FileObject)
 from d20.Manual.RPC import (RPCRequest, RPCServer,
                             RPCResponseStatus,
-                            RPCCommands,
+                            RPCCommands, RPCStream,
                             RPCStreamCommands)
 from d20.Manual.Temporary import TemporaryHandler
 from d20.Manual.Console import (PlayerState)
@@ -36,14 +37,17 @@ from d20.BackStories import (
     resolveBackStoryFacts)
 from d20.Screens import verifyScreens
 
-from typing import Any, List, Dict, Union, TYPE_CHECKING, Iterable, Tuple, Type, TypeVar, Optional
+from typing import List, Dict, Iterable, Tuple, Optional, TypeVar
 from d20.Players import Player
 from d20.NPCS import NPC
 from d20.BackStories import BackStory
 from d20.Screens import Screen
 from d20.Manual.Facts import Fact
-from d20.Manual.RPC import Entity
+from d20.Manual.RPC import Entity, RPCStartStreamRequest
 from d20.Manual.Logger import Logger
+
+
+Tasync = TypeVar('Tasync')
 
 LOGGER: Logger = logging.getLogger(__name__)
 
@@ -98,10 +102,13 @@ class GameMaster(object):
         self.Config: Configuration = Configuration()
         self.options: Optional[Namespace] = None
         self.save_state: Optional[Dict] = None
-        self.asyncData = type(
-            'asyncData', (), {'enabled': False,
-                              'eventloop': None,
-                              'eventwatcher': None})
+        self.asyncData: SimpleNamespace = SimpleNamespace(
+            enabled=False,
+            eventloop=None,
+            eventwatcher=None
+        )
+        # RX: modify to be simple namespace
+
         self.tempHandler: Optional[TemporaryHandler] = None
 
         for (name, value) in kwargs.items():
@@ -136,13 +143,13 @@ class GameMaster(object):
         #     self.tempHandler = TemporaryHandler(self.options.temporary)
 
         # Idle Wait Default: 1 second
-        self._idleWait = self.Config.d20.get('graceTime', 1)
+        self._idleWait: int = self.Config.d20.get('graceTime', 1)
 
         # Max Game Time Default unlimited (0 value)
-        self._maxGameTime = self.Config.d20.get('maxGameTime', 0)
+        self._maxGameTime: int = self.Config.d20.get('maxGameTime', 0)
 
         # Max turn Time for each Player Default unlimited (0 value)
-        self._maxTurnTime = self.Config.d20.get('maxTurnTime', 0)
+        self._maxTurnTime: int = self.Config.d20.get('maxTurnTime', 0)
 
         if self.save_state is not None:
             self.newGamePlus = True
@@ -188,8 +195,9 @@ class GameMaster(object):
                     _creator_="GameMaster",
                     metadata={'filename': self.options.file})
             elif self.options.backstory_facts is not None:
-                backstory_facts: List[Dict[str, Fact]] = yaml.load(
+                backstory_facts = yaml.load(
                     self.options.backstory_facts, Loader=yaml.FullLoader)
+                # RX: Check backstory fact Dict or list?
                 self.backstory_facts = resolveBackStoryFacts(backstory_facts)
             else:
                 with open(self.options.backstory_facts_path, 'rb') as f:
@@ -246,7 +254,7 @@ class GameMaster(object):
         npcs: List[NPC] = verifyNPCs(self.extra_npcs, self.Config)
 
         if self.save_state is None:
-            return
+            pass
         elif load and self.save_state['npcs'] is not None:
             for saved_npc in self.save_state['npcs']:
                 loaded_npc: Optional[NPC] = None
@@ -284,14 +292,14 @@ class GameMaster(object):
             self.npcs.append(tracker)
 
     def registerBackStories(self, load: bool = False) -> None:
-        backstories: List[NPC] = verifyBackStories(
+        backstories: List[BackStory] = verifyBackStories(
             self.extra_backstories, self.Config)
 
         if self.save_state is None:
-            return
+            pass
         elif load and self.save_state.get('backstories', None) is not None:
             for saved_backstory in self.save_state['backstories']:
-                loaded_backstory: Optional[NPC] = None
+                loaded_backstory: Optional[BackStory] = None
                 for backstory in backstories:
                     if backstory.name == saved_backstory['name']:
                         loaded_backstory = backstory
@@ -330,12 +338,12 @@ class GameMaster(object):
             self.backstories.append(tracker)
             self.backstory_categories[category].addBackStoryTracker(tracker)
 
-    def registerPlayers(self, load=False) -> None:
+    def registerPlayers(self, load: bool = False) -> None:
         unloaded_players: List[Player] = verifyPlayers(self.extra_players,
                                                        self.Config)
 
         if self.save_state is None:
-            return
+            pass
         elif load and self.save_state['players'] is not None:
             for saved_player in self.save_state['players']:
                 loaded_player: Optional[Player] = None
@@ -446,39 +454,41 @@ class GameMaster(object):
         if self.gameThread:
             self.gameThread.join()
 
-    def _parse_screen_options(self, screen: Screen) -> Namespace:
-        options: Namespace = screen.registration.options.parse(
-            screen.config.options,
-            screen.config.common
-        )
-        return options
+    def _parse_screen_options(self, screen: Screen) -> Dict[str, Dict]:
+        if screen.config is not None:
+            options: Dict[str, Dict] = screen.registration.options.parse(
+                screen.config.options,
+                screen.config.common
+            )
+            return options
+        else:
+            raise ConfigNotFoundError
 
-    def provideData(self, screen_name: str, printable: bool = False)\
-            -> Iterable:
+    def provideData(self, screen_name: str, printable: bool = False):
         if screen_name not in self.screens:
             raise ValueError("No screen by that name")
 
-        options: Namespace = self._parse_screen_options(
+        options: Dict[str, Dict] = self._parse_screen_options(
             self.screens[screen_name]
         )
         screen = self.screens[screen_name].cls(objects=self.objects,
-                                                       facts=self.facts,
-                                                       hyps=self.hyps,
-                                                       options=options)
+                                               facts=self.facts,
+                                               hyps=self.hyps,
+                                               options=options)
         if printable:
             return screen.present()
         else:
             return screen.filter()
 
-    def save(self) -> Dict[str, Any]:
+    def save(self) -> Dict:
         """Save current game state for later ingestion
         """
-        save_state: Dict[str, Any] = {'players': list(),
-                      'npcs': list(),
-                      'objects': list(),
-                      'facts': dict(),
-                      'hyps': dict(),
-                      'engine': GAME_ENGINE_VERSION_RAW}
+        save_state: Dict = {'players': list(),
+                            'npcs': list(),
+                            'objects': list(),
+                            'facts': dict(),
+                            'hyps': dict(),
+                            'engine': GAME_ENGINE_VERSION_RAW}
 
         if self.tempHandler is not None:
             save_state['temp_base'] = self.tempHandler.temporary_base
@@ -569,7 +579,8 @@ class GameMaster(object):
             LOGGER.warning("Exception trying to stop GM", exc_info=True)
 
     def cleanup(self) -> None:
-        if self.options.save_file is None and not self.newGamePlus:
+        if self.options is not None and self.tempHandler is not None and \
+                self.options.save_file is None and not self.newGamePlus:
             try:
                 self.tempHandler.cleanup()
             except TemporaryDirectoryError:
@@ -663,48 +674,55 @@ class GameMaster(object):
 
     def handlePrint(self, msg: RPCRequest) -> None:
         name: str = self.getEntityName(msg.entity)
+        if isinstance(msg.args, Namespace):
 
-        if 'kwargs' not in msg.args:
-            self.rpc.sendErrorResponse(
-                msg, reason="Missing required field in args")
-            return
+            if 'kwargs' not in msg.args:
+                self.rpc.sendErrorResponse(
+                    msg, reason="Missing required field in args")
+                return
 
-        if 'args' not in msg.args:
-            self.rpc.sendErrorResponse(
-                msg, reason="Missing required field in args")
-            return
+            if 'args' not in msg.args:
+                self.rpc.sendErrorResponse(
+                    msg, reason="Missing required field in args")
+                return
 
-        sep: str = ' '
-        for (key, value) in msg.args.kwargs.items():
-            if key == 'sep':
-                sep = value
+            sep: str = ' '
+            for (key, value) in msg.args.kwargs.items():
+                if key == 'sep':
+                    sep = value
+                else:
+                    self.rpc.sendErrorResponse(
+                        msg, reason="Unexpected field in kwargs")
+                    return
+
+            out_str: str = "%s: " % (name)
+
+            if len(msg.args.args) == 1:
+                try:
+                    print_string: str = str(msg.args.args[0])
+                except Exception:
+                    LOGGER.exception("Unable to format string for printing")
+                    self.rpc.sendErrorResponse(
+                        msg, reason="Unable to convert contents to string")
+                    return
             else:
-                self.rpc.sendErrorResponse(
-                    msg, reason="Unexpected field in kwargs")
-                return
+                try:
+                    print_string = sep.join([str(arg) for arg in
+                                             msg.args.args])
+                except Exception:
+                    LOGGER.exception("Unable to format string for printing")
+                    self.rpc.sendErrorResponse(
+                        msg, reason="Unable to convert arguments to string")
+                    return
 
-        out_str: str = "%s: " % (name)
-
-        if len(msg.args.args) == 1:
-            try:
-                print_string: str = str(msg.args.args[0])
-            except Exception:
-                LOGGER.exception("Unable to format string for printing")
-                self.rpc.sendErrorResponse(
-                    msg, reason="Unable to convert contents to string")
-                return
+            LOGGER.info(out_str + print_string)
         else:
-            try:
-                print_string = sep.join([str(arg) for arg in msg.args.args])
-            except Exception:
-                LOGGER.exception("Unable to format string for printing")
-                self.rpc.sendErrorResponse(
-                    msg, reason="Unable to convert arguments to string")
-                return
+            self.rpc.sendErrorResponse(
+                msg, reason="args field formatted incorrectly")
+            return
 
-        LOGGER.info(out_str + print_string)
-
-    def _checkFactStreamerConditions(self, fact: Fact, msg: RPCRequest, stream_msg):
+    def _checkFactStreamerConditions(self, fact: Fact, msg: RPCRequest,
+                                     stream_msg):
         if msg.entity == stream_msg.entity:
             return False
 
@@ -722,7 +740,8 @@ class GameMaster(object):
 
         return True
 
-    def _checkHypStreamerConditions(self, hyp, msg, stream_msg):
+    def _checkHypStreamerConditions(self, hyp: Fact, msg: RPCRequest,
+                                    stream_msg):
         if msg.entity == stream_msg.entity:
             return False
 

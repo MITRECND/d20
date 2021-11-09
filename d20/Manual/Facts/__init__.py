@@ -7,13 +7,12 @@ from collections import OrderedDict
 
 from inspect import (Parameter,
                      Signature)
-from typing import Optional, Dict, Set
 from .Fields import FactField
 
 from d20.Manual.Logger import logging
 from d20.Manual.Utils import loadExtras
 
-from typing import Any, List, Dict, Union, TYPE_CHECKING, Iterable, Tuple, OrderedDict, Type, TypeVar
+from typing import List, Dict, TypeVar, Optional, Set, Union, Tuple
 from d20.Manual.Logger import Logger
 T = TypeVar('T', bound='_FactMeta_')
 
@@ -48,7 +47,7 @@ def isFactGroup(arg: str) -> bool:
     return False
 
 
-def resolveFacts(*args: str)-> List[str]:
+def resolveFacts(*args) -> List[str]:
     """Function to expand and consilidate facts and fact groups
 
         This function takes a list of facts or fact groups as either an
@@ -92,7 +91,7 @@ def registerFact(*args: str, **kwargs: str):
         LOGGER.debug("Registering Fact %s"
                      % (cls.__qualname__))
 
-        existing_class= globals().get(cls.__qualname__, None)
+        existing_class = globals().get(cls.__qualname__, None)
         if existing_class is not None:
             LOGGER.warning("%s already exists" % (cls.__qualname__))
             return existing_class
@@ -136,14 +135,14 @@ class _FactMeta_(type):
     def __prepare__(cls, clsname, bases):
         return OrderedDict()
 
-    def __new__(cls, clsname: str, bases: Any, dct: Any):
+    def __new__(cls, clsname: str, bases, dct):
         fields: List[str] = [key for (key, val) in dct.items()
-                  if isinstance(val, FactField)]
+                             if isinstance(val, FactField)]
 
         for name in fields:
             dct[name].__set_name__(cls, name)
 
-        clsobj: Any = super().__new__(cls, clsname, bases, dict(dct))
+        clsobj = super().__new__(cls, clsname, bases, dict(dct))
 
         # TODO FIXME find a cleaner way to get the methods of the Fact class
         # Worst case we could run this manually, and then copy the produced
