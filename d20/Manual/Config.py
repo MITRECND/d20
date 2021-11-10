@@ -5,13 +5,13 @@ import argparse
 
 from d20.Manual.Logger import logging, Logger
 
-from typing import List, Dict, Union
+from typing import Dict
 
 
 LOGGER: Logger = logging.getLogger(__name__)
 
 
-d20_schema: Dict[str, Dict[str, Union[str, List[str], Dict[str, str]]]] = {
+d20_schema = {
     'extra-players': {'rename': 'extra_players'},
     'extra_players': {
         'type': ['string', 'list'],
@@ -57,7 +57,7 @@ d20_schema: Dict[str, Dict[str, Union[str, List[str], Dict[str, str]]]] = {
     }
 }
 
-common_schema: Dict[str, Dict[str, str]] = {
+common_schema = {
     'http_proxy': {
         'type': 'string'
     },
