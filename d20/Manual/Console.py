@@ -6,20 +6,18 @@ from requests.packages.urllib3.util import Retry
 from requests.adapters import HTTPAdapter
 from requests import Session
 
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 from d20.Manual.Exceptions import (ConsoleError, RPCTimeoutError,
                                    WaitTimeoutError)
-from d20.Manual.Facts import resolveFacts
+from d20.Manual.Facts import resolveFacts, Fact
 from d20.Manual.RPC import (RPCClient, RPCResponseStatus,
-                            RPCCommands,
+                            RPCCommands, RPCResponse,
                             RPCStreamCommands)
+from d20.Manual.Temporary import PlayerDirectoryHandler
+import d20.Manual.Trackers as Tracker
 
 from typing import List, Dict, Optional, Collection, Union, Tuple
-from d20.Manual.Logger import Logger
-from d20.Manual.Temporary import PlayerDirectoryHandler
-from d20.Manual.RPC import RPCResponse
-from d20.Manual.Facts import Fact
-import d20.Manual.Trackers as Tracker
+
 
 LOGGER: Logger = logging.getLogger(__name__)
 

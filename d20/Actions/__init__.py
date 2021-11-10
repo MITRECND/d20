@@ -1,9 +1,11 @@
 import sys
 import os
-from typing import Dict
 
 from d20.Manual.Options import Arguments
 from d20.Manual.Logger import logging
+
+from typing import Dict
+
 
 LOGGER = logging.getLogger(__name__)
 

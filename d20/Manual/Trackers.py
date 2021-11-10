@@ -4,7 +4,7 @@ import queue
 from enum import Enum
 
 from d20.Manual.Exceptions import PlayerCreationError
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 from d20.Manual.Templates import (PlayerTemplate,
                                   NPCTemplate,
                                   BackStoryTemplate)
@@ -17,11 +17,11 @@ from d20.Players import Player
 from d20.NPCS import NPC
 from d20.BackStories import BackStory
 from d20.Manual.RPC import EntityType, RPCClient, RPCServer
-
-from typing import List, Dict, Optional
-from d20.Manual.Logger import Logger
 from d20.Manual.BattleMap import FileObject
 from d20.Manual.Facts import Fact
+
+from typing import List, Dict, Optional
+
 
 LOGGER: Logger = logging.getLogger(__name__)
 

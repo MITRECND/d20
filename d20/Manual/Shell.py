@@ -14,9 +14,9 @@ from d20.Manual.Facts.Fields import (SimpleField,
                                      NumericalField,
                                      StrOrBytesField)
 from d20.Manual.BattleMap import FactTable, FileObject
+from d20.Manual.GameMaster import GameMaster
 
 from typing import Optional, Dict, OrderedDict, Tuple, Union, Set, List
-from d20.Manual.GameMaster import GameMaster
 
 
 def tsTodt(input: float) -> str:

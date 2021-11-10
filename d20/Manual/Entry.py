@@ -6,24 +6,20 @@ import textwrap
 import yaml
 
 from d20.version import GAME_ENGINE_VERSION
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 from d20.Manual.Facts import loadFacts
 from d20.Manual.Config import Configuration
 from d20.Manual.Shell import ShellCmd
-from d20.Players import verifyPlayers
-from d20.NPCS import verifyNPCs
-from d20.BackStories import BackStory, verifyBackStories
-from d20.Screens import verifyScreens
+from d20.Players import verifyPlayers, Player
+from d20.NPCS import verifyNPCs, NPC
+from d20.BackStories import verifyBackStories, BackStory
+from d20.Screens import verifyScreens, Screen
 from d20.Actions import (setupActionLoader, ACTION_INVENTORY)
 from d20.Manual.GameMaster import GameMaster
 from d20.Manual.Options import _empty
 
-
 from typing import List, Dict
-from d20.Players import Player
-from d20.NPCS import NPC
-from d20.Screens import Screen
-from d20.Manual.Logger import Logger
+
 
 LOGGER: 'Logger' = logging.getLogger(__name__)
 

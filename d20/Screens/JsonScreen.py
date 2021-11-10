@@ -1,13 +1,13 @@
 from d20.Manual.Options import Arguments
 from d20.Manual.Templates import (ScreenTemplate,
                                   registerScreen)
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 
 import json
 import binascii
 
 from typing import Dict, Type, Optional
-from d20.Manual.Logger import Logger
+
 
 LOGGER: Logger = logging.getLogger(__name__)
 

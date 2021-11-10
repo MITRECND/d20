@@ -1,16 +1,16 @@
 import os
 
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 from d20.Manual.Registration import BackStoryRegistrationForm
 from d20.Manual.Utils import loadExtras
 from d20.version import GAME_ENGINE_VERSION
 from d20.Manual.Facts import Fact, getFactClass
+from d20.Manual.Config import Configuration, EntityConfiguration
 
 from typing import TYPE_CHECKING, List, Dict, Set, Type, Optional
-from d20.Manual.Logger import Logger
-from d20.Manual.Config import Configuration, EntityConfiguration
 if TYPE_CHECKING:
     from d20.Manual.Templates import BackStoryTemplate
+
 
 LOADED: Set = set()
 STORIES: Dict = dict()

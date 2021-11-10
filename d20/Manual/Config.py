@@ -1,11 +1,12 @@
 from cerberus.validator import Validator
 import yaml
 import cerberus
-from d20.Manual.Logger import logging
+import argparse
+
+from d20.Manual.Logger import logging, Logger
 
 from typing import List, Dict, Union
-from d20.Manual.Logger import Logger
-import argparse
+
 
 LOGGER: Logger = logging.getLogger(__name__)
 

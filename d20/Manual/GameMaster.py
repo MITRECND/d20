@@ -14,7 +14,7 @@ from d20.version import (
 from d20.Manual.Exceptions import (ConfigNotFoundError, PlayerCreationError,
                                    DuplicateObjectError,
                                    TemporaryDirectoryError)
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 from d20.Manual.Trackers import (NPCTracker,
                                  PlayerTracker,
                                  BackStoryTracker,
@@ -25,26 +25,22 @@ from d20.Manual.BattleMap import (FactTable,
                                   FileObject)
 from d20.Manual.RPC import (RPCRequest, RPCServer,
                             RPCResponseStatus,
-                            RPCCommands, RPCStream,
-                            RPCStreamCommands)
+                            RPCCommands,
+                            RPCStreamCommands,
+                            Entity, RPCStartStreamRequest)
 from d20.Manual.Temporary import TemporaryHandler
 from d20.Manual.Console import (PlayerState)
 from d20.Manual.Config import Configuration
-from d20.Players import verifyPlayers
-from d20.NPCS import verifyNPCs
+from d20.Manual.Facts import Fact
+from d20.Players import Player, verifyPlayers
+from d20.NPCS import NPC, verifyNPCs
 from d20.BackStories import (
+    BackStory,
     verifyBackStories,
     resolveBackStoryFacts)
-from d20.Screens import verifyScreens
+from d20.Screens import Screen, verifyScreens
 
 from typing import List, Dict, Iterable, Tuple, Optional, TypeVar
-from d20.Players import Player
-from d20.NPCS import NPC
-from d20.BackStories import BackStory
-from d20.Screens import Screen
-from d20.Manual.Facts import Fact
-from d20.Manual.RPC import Entity, RPCStartStreamRequest
-from d20.Manual.Logger import Logger
 
 
 Tasync = TypeVar('Tasync')
