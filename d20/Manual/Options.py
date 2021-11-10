@@ -3,7 +3,7 @@ import cerberus
 
 from d20.Manual.Logger import logging, Logger
 
-from typing import Optional, Type, Tuple, Dict
+from typing import Optional, Type, Tuple, Dict, Union
 
 
 LOGGER: Logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class CerberusSchemaGenerator:
     empty: Type[_empty] = _empty
 
     def __init__(self) -> None:
-        self._schema: Dict = dict()
+        self._schema: Dict[str, Dict[str, Union[str, bool]]] = dict()
         self._docs: Dict = dict()
 
     def python2CerberusType(self, type) -> str:
@@ -94,7 +94,7 @@ class CerberusSchemaGenerator:
             'help': help
         }
 
-        arg_schema: Dict = {
+        arg_schema: Dict[str, Union[str, bool]] = {
             'type': self.python2CerberusType(type),
             'nullable': True
         }

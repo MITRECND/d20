@@ -136,7 +136,7 @@ class ConsoleInterface(object):
             self._session = self.__getSession(**self._sessionRetryConfig)
         return self._session
 
-    def configureRequestsRetry(self, **kwargs: Dict) -> None:
+    def configureRequestsRetry(self, **kwargs) -> None:
         """Configuration options for the Retry class
 
             This function allows you to customize the behavior of the Retry
@@ -177,7 +177,7 @@ class ConsoleInterface(object):
     def _noop(self) -> None:
         self._rpc.sendAndIgnore(command=RPCCommands.noop)
 
-    def print(self, *args: Tuple, **kwargs: Dict) -> None:
+    def print(self, *args, **kwargs) -> None:
         """Prints out stuff, similar to python built-in print
 
             Entities should not use the built-in print since this provides

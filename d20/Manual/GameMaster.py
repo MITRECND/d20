@@ -85,7 +85,7 @@ class GameMaster(object):
 
         self.factWaitList: List = list()
         self.factStreamList: Dict[str, List] = dict()
-        self.hypStreamList: Dict = dict()
+        self.hypStreamList: Dict[str, List] = dict()
         self.objectStreamList: List = list()
 
         self.rpc: RPCServer = RPCServer()
@@ -191,9 +191,8 @@ class GameMaster(object):
                     _creator_="GameMaster",
                     metadata={'filename': self.options.file})
             elif self.options.backstory_facts is not None:
-                backstory_facts = yaml.load(
+                backstory_facts: Dict = yaml.load(
                     self.options.backstory_facts, Loader=yaml.FullLoader)
-                # RX: Check backstory fact Dict or list?
                 self.backstory_facts = resolveBackStoryFacts(backstory_facts)
             else:
                 with open(self.options.backstory_facts_path, 'rb') as f:

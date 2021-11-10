@@ -18,7 +18,7 @@ from d20.Actions import (setupActionLoader, ACTION_INVENTORY)
 from d20.Manual.GameMaster import GameMaster
 from d20.Manual.Options import _empty
 
-from typing import List, Dict
+from typing import List, Dict, Union
 
 
 LOGGER: 'Logger' = logging.getLogger(__name__)
@@ -325,7 +325,8 @@ def main() -> None:
         sys.exit(1)
 
 
-def play(**kwargs: Dict):  # Return type depends on screen
+# Return type depends on screen
+def play(**kwargs: Union[str, List[str], bool]):
     """play the game
 
     This method allows one to call d20 from another python program returning

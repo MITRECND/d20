@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 LOADED: Set = set()
-STORIES: Dict = dict()
+STORIES: Dict[str, 'BackStory'] = dict()
 LOGGER: Logger = logging.getLogger(__name__)
 
 
@@ -26,8 +26,7 @@ class BackStory:
         self.config: Optional[EntityConfiguration] = None
 
 
-# RX: Check backstory fact Dict or list?
-def resolveBackStoryFacts(backstory_facts: Dict) -> List:
+def resolveBackStoryFacts(backstory_facts: Dict) -> List[Fact]:
     """Takes list of dicts that are then turned into fact class instances
 
     Arguments:
@@ -40,7 +39,7 @@ def resolveBackStoryFacts(backstory_facts: Dict) -> List:
         LOGGER.error("Provide backstory facts are malformed")
         return []
 
-    facts: List = list()
+    facts: List[Fact] = list()
     for fact_template in backstory_facts['facts']:
         try:
             fact_class = getFactClass(fact_template['name'])

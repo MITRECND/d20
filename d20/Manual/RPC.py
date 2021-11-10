@@ -202,8 +202,8 @@ class RPCClient:
         self.client_queue: queue.Queue = queue.Queue()
         self.id: int = RPCClient.generateClientId()
         self.entity: Entity = Entity(entity_type, self.id, entity_id, clone_id)
-        self.msglist: Dict = dict()
-        self.streams: Dict = dict()
+        self.msglist: Dict[int, RPCResponse] = dict()
+        self.streams: Dict[int, queue.Queue] = dict()
         self.timeouts: Set = set()
         self.ignores: Set = set()
         self._stop: bool = False
@@ -348,12 +348,12 @@ class RPCClient:
 class RPCServer:
     def __init__(self):
         self.server_queue: queue.Queue = queue.Queue()
-        self.clients: Dict = dict()
+        self.clients: Dict[int, RPCClient] = dict()
         self.streams: Dict = dict()
         self._stop: bool = False
-        self.handlers: Dict = dict()
-        self.startStreamHandlers: Dict = dict()
-        self.stopStreamHandlers: Dict = dict()
+        self.handlers: Dict[RPCCommands, Callable] = dict()
+        self.startStreamHandlers: Dict[RPCStreamCommands, Callable] = dict()
+        self.stopStreamHandlers: Dict[RPCStreamCommands, Callable] = dict()
         self.idleFn: Callable = None
         self.rpc_thread: threading.Thread = threading.Thread(
             target=self.runGame,

@@ -91,7 +91,7 @@ d20:
 
 class EntityConfiguration:
     def __init__(self, myconfig: Dict, common: Dict) -> None:
-        if not isinstance(myconfig, dict):  # RX: Are these checks necessary?
+        if not isinstance(myconfig, dict):
             raise TypeError("Expected 'myconfig' to be a dict")
         if not isinstance(common, dict):
             raise TypeError("Expected 'common' to be a dict")

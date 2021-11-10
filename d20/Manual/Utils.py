@@ -14,7 +14,7 @@ def loadExtras(paths: List[str], loaded: Set, exclude=None,
         components in those files via the decorators and other functions
     """
 
-    files: Dict = dict()
+    files: Dict[str, Set] = dict()
 
     # Get all files in these directories
     for path in paths:
