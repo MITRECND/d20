@@ -10,7 +10,7 @@ from d20.Manual.Exceptions import StreamTimeoutError, RPCTimeoutError
 from typing import (Callable, Optional,
                     Dict, Union, Set,
                     Iterable, List,
-                    Tuple, Type)
+                    Tuple, Type, Generator)
 
 LOGGER: Logger = logging.getLogger(__name__)
 
@@ -279,13 +279,14 @@ class RPCClient:
         self.server_queue.put(request)
 
     def getStream(self, stream_id: int,
-                  timeout: Optional[int] = None) -> Iterable:
+                  timeout: Optional[int] = None
+                  ) -> Generator[RPCResponse, None, None]:
         if stream_id not in self.streams.keys():
             raise RuntimeError("Attempt to get untracked stream")
 
         while 1:
             try:
-                msg: Iterable = self.streams[stream_id].get(timeout=timeout)
+                msg: RPCResponse = self.streams[stream_id].get(timeout=timeout)
                 yield msg
             except queue.Empty:
                 raise StreamTimeoutError()

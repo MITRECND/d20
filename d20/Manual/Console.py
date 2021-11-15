@@ -17,7 +17,7 @@ from d20.Manual.RPC import (RPCClient, RPCResponseStatus,
 from d20.Manual.Temporary import PlayerDirectoryHandler
 import d20.Manual.Trackers as Tracker
 
-from typing import List, Dict, Optional, Collection, Union, Tuple
+from typing import List, Dict, Optional, Collection, Union, Tuple, Generator
 
 
 LOGGER: Logger = logging.getLogger(__name__)
@@ -556,7 +556,7 @@ class PlayerConsole(ConsoleInterface):
 
         return resp.result.hyp_list
 
-    def _waitOn(self, stream_id: int) -> Iterable:
+    def _waitOn(self, stream_id: int) -> Generator[RPCResponse, None, None]:
         # Set the state to waiting before entering the loop
         # since the generator will block
         self.setWaiting()
@@ -579,7 +579,7 @@ class PlayerConsole(ConsoleInterface):
             self.setRunning()
 
     def waitOnFacts(self, facts: Union[str, List[str]],
-                    only_latest: bool = False) -> Iterable:
+                    only_latest: bool = False) -> Generator[Fact, None, None]:
         """Waits on facts until player breaks out of generator
         """
 
@@ -596,7 +596,7 @@ class PlayerConsole(ConsoleInterface):
             yield msg.result.fact
 
     def waitOnHyps(self, hyps: Union[str, List[str]],
-                   only_latest: bool = False) -> Iterable:
+                   only_latest: bool = False) -> Generator[Fact, None, None]:
         """Waits on hypotheses until player breaks out of generator
         """
 
@@ -616,7 +616,8 @@ class PlayerConsole(ConsoleInterface):
                          fact_id: Optional[int] = None,
                          hyp_id: Optional[int] = None,
                          facts: Union[str, List[str]] = None,
-                         only_latest: bool = False) -> Iterable:
+                         only_latest: bool = False
+                         ) -> Generator[Fact, None, None]:
         """Wait on facts of given types, for a given object id, fact id, or
             hyp id until player breaks out of generator
         """
@@ -651,7 +652,8 @@ class PlayerConsole(ConsoleInterface):
                         fact_id: Optional[int] = None,
                         hyp_id: Optional[int] = None,
                         types: Union[str, List[str]] = None,
-                        only_latest: bool = False) -> Iterable:
+                        only_latest: bool = False
+                        ) -> Generator[Fact, None, None]:
         """Wait on hypotheses of given types, for a given object id, fact id,
             or hypothesis id until player breaks out of generator
         """
@@ -685,7 +687,8 @@ class PlayerConsole(ConsoleInterface):
     def waitOnChildObjects(self, object_id: Optional[int] = None,
                            fact_id: Optional[int] = None,
                            hyp_id: Optional[int] = None,
-                           only_latest: bool = False) -> Iterable:
+                           only_latest: bool = False
+                           ) -> Generator[FileObject, None, None]:
         """Wait on child objects of a given object id, fact id, or
             hypothesis id
         """
