@@ -245,7 +245,7 @@ class BackStoryRegistrationForm:
             raise AttributeError(
                 "BackStory must define supported engine version")
 
-    def addFactInterests(self, interests: List) -> None:
+    def addFactInterests(self, interests: List[str]) -> None:
         for interest in interests:
             self._interests.add(interest)
 

@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from requests.packages.urllib3.util import Retry
 from requests.adapters import HTTPAdapter
 from requests import Session
+from d20.Manual.BattleMap import FileObject
 
 from d20.Manual.Logger import logging, Logger
 from d20.Manual.Exceptions import (ConsoleError, RPCTimeoutError,
@@ -479,7 +480,7 @@ class PlayerConsole(ConsoleInterface):
 
         return resp.result.object
 
-    def getAllObjects(self) -> List:
+    def getAllObjects(self) -> List[FileObject]:
         """Returns a list of all objects
         """
         resp: RPCResponse = self._rpc.sendAndWait(

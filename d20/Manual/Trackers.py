@@ -167,7 +167,7 @@ class BackStoryCategoryTracker:
         self._state: PlayerState = PlayerState.stopped
         self.factQueue: queue.Queue = queue.Queue()
         self.category: str = category
-        self.backstory_trackers: List = list()
+        self.backstory_trackers: List['BackStoryTracker'] = list()
 
         self.backstory_thread: threading.Thread = threading.Thread(
             name='backstoryTracker.%s' % (category),
@@ -192,7 +192,7 @@ class BackStoryCategoryTracker:
                 try:
                     start: float = time.time()
                     self._state = PlayerState.running
-                    result = backstory_tracker.handleFact(fact=fact)
+                    result: bool = backstory_tracker.handleFact(fact=fact)
                     if result is True:
                         break
                 except Exception:
@@ -305,8 +305,8 @@ class BackStoryTracker:
 
         self._inst = _inst
 
-    def handleFact(self, fact: Fact) -> None:
-        return self._inst.handleFact(fact=fact)
+    def handleFact(self, fact: Fact) -> bool:
+        return self._inst.handleFact(fact=fact)  # type: ignore
 
     @property
     def runtime(self) -> float:
@@ -368,7 +368,7 @@ class PlayerTracker(object):
         self.clones: Dict = dict()
 
         self.maxTurnTime: int = 0
-        self.ignoredClones: List = []
+        self.ignoredClones: List[int] = []
 
         self._runtime: float = 0.0
 
@@ -434,8 +434,8 @@ class PlayerTracker(object):
         return playerState
 
     @property
-    def states(self) -> List:
-        playerStates: List = [
+    def states(self) -> List[PlayerState]:
+        playerStates: List[PlayerState] = [
             clone.state for(clone_id, clone) in self.clones.items()]
 
         return playerStates

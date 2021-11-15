@@ -25,9 +25,9 @@ from d20.Manual.BattleMap import (FactTable,
                                   FileObject)
 from d20.Manual.RPC import (RPCRequest, RPCServer,
                             RPCResponseStatus,
-                            RPCCommands,
+                            RPCCommands, RPCStartStreamRequest,
                             RPCStreamCommands,
-                            Entity, RPCStartStreamRequest)
+                            Entity)
 from d20.Manual.Temporary import TemporaryHandler
 from d20.Manual.Console import (PlayerState)
 from d20.Manual.Config import Configuration
@@ -40,10 +40,11 @@ from d20.BackStories import (
     resolveBackStoryFacts)
 from d20.Screens import Screen, verifyScreens
 
-from typing import List, Dict, Iterable, Tuple, Optional, TypeVar
-
-
+from typing import (List, Dict, Iterable,
+                    Tuple, Optional, TypeVar,
+                    Union, NewType, Type)
 Tasync = TypeVar('Tasync')
+TWList = NewType('TWList', Tuple[Union[str, List[str]], Optional[int]])
 
 LOGGER: Logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ class GameMaster(object):
         self._idleCount: int = 0
         self._idleTicks: int = 100  # 'ticks' i.e., primarly loop cycles
 
-        self.factWaitList: List = list()
+        self.factWaitList: List[TWList] = list()
         self.factStreamList: Dict[str, List] = dict()
         self.hypStreamList: Dict[str, List] = dict()
         self.objectStreamList: List = list()
@@ -1089,8 +1090,8 @@ class GameMaster(object):
         self.rpc.sendOKResponse(msg, result=result)
 
     def handleWaitTillFact(self, msg):
-        fact_type = msg.args.fact_type
-        last_fact = msg.args.last_fact
+        fact_type: Union[str, List[str]] = msg.args.fact_type
+        last_fact: Optional[int] = msg.args.last_fact
 
         # Based on last_fact, see if any facts have been added
         # If any have been added respond back immediately with the first one
@@ -1114,24 +1115,25 @@ class GameMaster(object):
         # else need to put data into wait list
         self.factWaitList.append((fact_type, msg))
 
-    def streamHandleFactStreamStart(self, msg):
-        fact_types = msg.stream.args.fact_types
-        only_latest = msg.stream.args.only_latest
+    def streamHandleFactStreamStart(self, msg: RPCStartStreamRequest):
+        if isinstance(msg.stream.args, Namespace):
+            fact_types = msg.stream.args.fact_types
+            only_latest = msg.stream.args.only_latest
 
-        if not only_latest:
+            if not only_latest:
+                for ft in fact_types:
+                    factColumn = self.facts.getColumn(ft)
+                    if factColumn is not None:
+                        for fact in factColumn:
+                            result = {'fact': fact}
+                            self.rpc.sendResponse(msg,
+                                                  RPCResponseStatus.ok,
+                                                  result=result)
+
             for ft in fact_types:
-                factColumn = self.facts.getColumn(ft)
-                if factColumn is not None:
-                    for fact in factColumn:
-                        result = {'fact': fact}
-                        self.rpc.sendResponse(msg,
-                                              RPCResponseStatus.ok,
-                                              result=result)
-
-        for ft in fact_types:
-            if ft not in self.factStreamList:
-                self.factStreamList[ft] = list()
-            self.factStreamList[ft].append((msg))
+                if ft not in self.factStreamList:
+                    self.factStreamList[ft] = list()
+                self.factStreamList[ft].append((msg))
 
     def streamHandleFactStreamStop(self, msg):
         stream_id = msg.args.stream_id

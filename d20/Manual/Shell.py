@@ -289,8 +289,8 @@ class BaseCmd(cmd.Cmd):
 
         return True
 
-    def _parse_bc(self) -> List:
-        bc = list()
+    def _parse_bc(self) -> List[Tuple[int, str, int]]:
+        bc: List[Tuple[int, str, int]] = list()
         for i, item in enumerate(self.depthList):
             if isinstance(item, FileObject):
                 t = 'object'
@@ -313,7 +313,7 @@ class BaseCmd(cmd.Cmd):
             sys.stdout.write("At root\n")
             return
 
-        bc: List = self._parse_bc()
+        bc: List[Tuple[int, str, int]] = self._parse_bc()
 
         for (bcid, bctype, itemid) in bc:
             sys.stdout.write("%d - %s %d\n" % (bcid, bctype, itemid))
