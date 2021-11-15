@@ -189,9 +189,10 @@ class ConsoleInterface(object):
                                 args={'args': args, 'kwargs': kwargs})
 
     def _addObject(self, object_data: bytes, creator: str,
-                   parentObjects: Optional[Iterable],
-                   parentFacts: Optional[Iterable],
-                   parentHyps: Optional[Iterable], metadata: Optional[Dict],
+                   parentObjects: Optional[List[FileObject]],
+                   parentFacts: Optional[List[Fact]],
+                   parentHyps: Optional[List[Fact]],
+                   metadata: Optional[Dict],
                    encoding: Optional[str]) -> RPCResponse:
         """Adds an object to the object list
 
@@ -309,8 +310,10 @@ class BackStoryConsole(ConsoleInterface):
         """Property to store backstory-level memory"""
         return self.__tracker_.memory
 
-    def addObject(self, object_data: bytes, parentObjects: Iterable = None,
-                  parentFacts: Iterable = None, parentHyps: Iterable = None,
+    def addObject(self, object_data: bytes,
+                  parentObjects: Optional[List[FileObject]] = None,
+                  parentFacts: Optional[List[Fact]] = None,
+                  parentHyps: Optional[List[Fact]] = None,
                   metadata: Dict = None, encoding: str = None) -> int:
         """Adds an object to the object list
 
@@ -376,8 +379,10 @@ class NPCConsole(ConsoleInterface):
         """Property to store npc-level memory"""
         return self.__tracker_.memory
 
-    def addObject(self, object_data: bytes, parentObjects: Iterable = None,
-                  parentFacts: Iterable = None, parentHyps: Iterable = None,
+    def addObject(self, object_data: bytes,
+                  parentObjects: Optional[List[FileObject]] = None,
+                  parentFacts: Optional[List[Fact]] = None,
+                  parentHyps: Optional[List[Fact]] = None,
                   metadata: Dict = None, encoding: str = None) -> int:
         """Adds an object to the object list
 
@@ -732,8 +737,10 @@ class PlayerConsole(ConsoleInterface):
             raise WaitTimeoutError()
             # TODO FIXME XXX
 
-    def addObject(self, object_data: bytes, parentObjects: Iterable = None,
-                  parentFacts: Iterable = None, parentHyps: Iterable = None,
+    def addObject(self, object_data: bytes,
+                  parentObjects: Optional[List[FileObject]] = None,
+                  parentFacts: Optional[List[Fact]] = None,
+                  parentHyps: Optional[List[Fact]] = None,
                   metadata: Dict = None, encoding: str = None) -> int:
         """Adds an object to the object list
 
