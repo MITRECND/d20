@@ -30,8 +30,10 @@ class Arguments:
             self._schemaGenerator.schema
         )
 
-    def parse(self, arguments: Dict, common: Optional[Dict] = None) \
-            -> Dict[str, Dict]:
+    def parse(self,
+              arguments: Dict,
+              common: Optional[Dict] = None
+              ) -> Dict[str, Dict]:
         valid: bool = self._validator.validate(arguments)
         if not valid:
             raise ValueError(

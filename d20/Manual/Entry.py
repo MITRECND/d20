@@ -230,8 +230,9 @@ def main() -> None:
 
     if args.list_backstories:
         print("Registered BackStories:")
-        backstories: List[BackStory] = \
-            verifyBackStories(args.extra_backstories, Config)
+        backstories: List[BackStory] = verifyBackStories(
+                                            args.extra_backstories,
+                                            Config)
         if len(backstories) == 0:
             print("\tNo BackStories")
         else:
@@ -287,8 +288,9 @@ def main() -> None:
                             list(player.registration.facts_generated)):
                         print("\t\t%s" % (str(fg)))
                 if isinstance(player.registration.help, str):
-                    help_lines: List[str] = \
-                        textwrap.wrap(player.registration.help, width=60)
+                    help_lines: List[str] = textwrap.wrap(
+                                                player.registration.help,
+                                                width=60)
                     help_msg: str = "\n\t\t".join(help_lines)
                     print("\n\tHelp:\n\t\t%s" % (help_msg))
 
