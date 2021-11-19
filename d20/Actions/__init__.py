@@ -1,10 +1,11 @@
 import sys
 import os
+from d20.Manual.Config import Configuration
 
 from d20.Manual.Options import Arguments
 from d20.Manual.Logger import logging
 
-from typing import Dict
+from typing import Callable, Dict, Type, Optional, List
 
 
 LOGGER = logging.getLogger(__name__)
@@ -12,19 +13,19 @@ LOGGER = logging.getLogger(__name__)
 ACTION_INVENTORY: Dict = dict()
 
 
-def registerAction(*args, **kwargs):
+def registerAction(*args, **kwargs) -> Callable:
     """A decorator for registering an action
 
     """
-    def _registerAction(cls):
+    def _registerAction(cls: Type[object]) -> Type[object]:
         LOGGER.debug("Registering Action %s"
                      % (cls.__qualname__))
-        reg = ActionRegistrationForm(**kwargs)
+        reg: 'ActionRegistrationForm' = ActionRegistrationForm(**kwargs)
         global ACTION_INVENTORY
-        if reg.name not in ACTION_INVENTORY.keys():
+        if reg.name not in ACTION_INVENTORY.keys() and reg.name is not None:
             ACTION_INVENTORY[reg.name] = type(
                 'actionstub', tuple(), {'registration': reg})
-            cls.options = Config._for(reg.name)
+            cls.options = Config._for(reg.name)  # type: ignore
         return cls
     return _registerAction
 
@@ -32,10 +33,10 @@ def registerAction(*args, **kwargs):
 class ActionRegistrationForm:
     """Action metadata helper class
     """
-    def __init__(self, *args, **kwargs):
-        self.name = None
-        self.description = None
-        self.options = Arguments()
+    def __init__(self, *args, **kwargs) -> None:
+        self.name: Optional[str] = None
+        self.description: Optional[str] = None
+        self.options: Arguments = Arguments()
 
         for (key, val) in kwargs.items():
             if key == 'name':
@@ -61,10 +62,10 @@ class _Config_:
         imported into other code, but since config might not be available
         that is abstracted
     """
-    def __init__(self, config):
+    def __init__(self, config: Configuration) -> None:
         self._config_ = config
 
-    def _for(self, name):
+    def _for(self, name: str) -> Dict:
         action_config = self._config_.actionConfig(name)
         out_config = dict()
         if name not in ACTION_INVENTORY:
@@ -87,10 +88,10 @@ class Config:
         Config._for('foo') will attempt to return the config for 'foo'
         from the Actions section of the config
     """
-    _config_obj_ = None
+    _config_obj_: Optional[_Config_] = None
 
     @classmethod
-    def _for(cls, name):
+    def _for(cls: Type['Config'], name: str) -> Dict:
         if cls._config_obj_ is None:
             LOGGER.warning("Config._for called before action loader setup")
             return dict()
@@ -98,7 +99,7 @@ class Config:
             return cls._config_obj_._for(name)
 
 
-def setupActionLoader(extra_actions, config):
+def setupActionLoader(extra_actions: List[str], config: Configuration) -> None:
     """Init sequence for 'Actions'
 
         This function injects the different action paths found
@@ -119,6 +120,10 @@ def setupActionLoader(extra_actions, config):
         exit(1)
 
     try:
+        if sys.modules['d20.Actions'].__spec__ is None or \
+                sys.modules['d20.Actions'].__spec__.submodule_search_locations\
+                is None:
+            raise Exception
         sys.modules['d20.Actions'].__spec__.\
             submodule_search_locations.extend(abspaths)
     except Exception:

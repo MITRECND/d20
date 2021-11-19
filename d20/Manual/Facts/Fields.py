@@ -1,6 +1,10 @@
 from collections.abc import Iterable
 from inspect import Parameter
 
+from typing import List, Optional, Union, TYPE_CHECKING
+if TYPE_CHECKING:
+    from d20.Manual.Facts import Fact
+
 
 class _empty:
     """Marker object for FactField.empty"""
@@ -24,22 +28,31 @@ class FactField:
     """
     empty = _empty
 
-    def __init__(self, name=None, *args, required=False, help=None,
-                 default=Parameter.empty, allowed_values=None, **kwargs):
-        self.name = name
-        self.required = required
-        self.allowed_values = allowed_values
-        self.instance = None
-        self.default = default
-        self.help = help
+    def __init__(self,
+                 name: Optional[str] = None,
+                 *args,
+                 required: bool = False,
+                 help: Optional[str] = None,
+                 default: Parameter = Parameter.empty,
+                 allowed_values: Optional[Iterable] = None,
+                 **kwargs):
+        self.name: Optional[str] = name
+        self.required: bool = required
+        self.allowed_values: Optional[Iterable] = allowed_values
+        self.instance: Optional[Fact] = None
+        self.default: Parameter = default
+        self.help: Optional[str] = help
 
-    def __set_name__(self, owner, name):
+    def __set_name__(self, owner, name: str) -> None:
         self.name = name
 
-    def __set_instance__(self, instance):
+    def __set_instance__(self, instance: 'Fact') -> None:
         self.instance = instance
 
-    def getShell(self):
+    def getShell(self) -> Union[str, bytes]:
+        if self.name is None:
+            raise AttributeError("%s object has no name"
+                                 % (self.instance.__class__.__name__))
         try:
             return self.instance.__dict__[self.name]
         except KeyError:
@@ -47,7 +60,10 @@ class FactField:
                                  % (self.instance.__class__.__name__,
                                     self.name)) from None
 
-    def __str__(self):
+    def __str__(self) -> str:
+        if self.name is None:
+            raise AttributeError("%s object has no name"
+                                 % (self.instance.__class__.__name__))
         try:
             return str(self.instance.__dict__[self.name])
         except KeyError:
@@ -55,7 +71,7 @@ class FactField:
                                  % (self.instance.__class__.__name__,
                                     self.name)) from None
 
-    def __get__(self, instance, owner):
+    def __get__(self, instance, owner) -> Union[Parameter, 'FactField']:
         if instance is None:
             return self
         else:
@@ -68,14 +84,17 @@ class FactField:
                                      % (instance.__class__.__name__,
                                         self.name)) from None
 
-    def __set__(self, instance, value):
+    def __set__(self, instance: 'Fact', value) -> None:
+        if self.name is None:
+            raise AttributeError("%s object has no name"
+                                 % (self.instance.__class__.__name__))
         if isinstance(self.allowed_values, Iterable):
             if value not in self.allowed_values:
                 raise ValueError("Field %s can only be certain values"
                                  % (self.name))
         instance.__dict__[self.name] = value
 
-    def __delete__(self, instance):
+    def __delete__(self, instance) -> None:
         raise RuntimeError("Fact fields cannot be deleted")
 
 
@@ -87,7 +106,7 @@ class SimpleField(FactField):
     """
     fieldType = object
 
-    def __set__(self, instance, value):
+    def __set__(self, instance: 'Fact', value) -> None:
         if not isinstance(value, self.fieldType):
             raise TypeError(
                 "Field '%s' expected %s type (inferred to be %s type)"
@@ -150,11 +169,11 @@ class ListField(FactField):
        an element type is specified it uses the ConstrainedList type
        defined below
     """
-    def __init__(self, *args, valType=None, **kwargs):
+    def __init__(self, *args, valType=None, **kwargs) -> None:
         self.valType = valType
         super().__init__(*args, **kwargs)
 
-    def __set__(self, instance, value):
+    def __set__(self, instance: 'Fact', value: List) -> None:
         if not isinstance(value,
                           list) and not isinstance(value, ConstrainedList):
             raise TypeError("Field '%s' expected list type (inferred %s type)"
@@ -167,7 +186,7 @@ class ListField(FactField):
 class ListDictsField(ListField):
     """List of Dicts
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, valType=dict, **kwargs)
 
 
@@ -176,7 +195,7 @@ class NumericalField(FactField):
 
         Supports the 'int' and 'float' types
     """
-    def __set__(self, instance, value):
+    def __set__(self, instance: 'Fact', value: Union[float, int]) -> None:
         if not isinstance(value, int) and not isinstance(value, float):
             raise TypeError(
                 "Field '%s' expected int or float types (inferred %s type)"
@@ -190,17 +209,17 @@ class StrOrBytesField(FactField):
         This class allows for both 'str' and 'bytes' types. Useful when you
         want to relax checking of either type
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def __set__(self, instance, value):
+    def __set__(self, instance: 'Fact', value: Union[str, bytes]) -> None:
         if not isinstance(value, str) and not isinstance(value, bytes):
             raise TypeError(
                 "Field '%s' expected str or bytes types (inferred %s type)"
                 % (self.name, type(value).__name__))
         super().__set__(instance, value)
 
-    def getShell(self):
+    def getShell(self) -> Union[str, bytes]:
         value = super().getShell()
 
         if isinstance(value, str):
@@ -219,7 +238,7 @@ class ConstrainedList(list):
         This class, based on the built-in list type, does basic type checking
         of members being added to ensure they are of the correct type
     """
-    def __init__(self, *args, valType, **kwargs):
+    def __init__(self, *args, valType, **kwargs) -> None:
         self.valType = valType
         if len(args) > 1:
             raise TypeError(
@@ -243,7 +262,7 @@ class ConstrainedList(list):
             for item in source:
                 self.append(item)
 
-    def __checkClass_(self, value):
+    def __checkClass_(self, value: 'ConstrainedList') -> None:
         if not isinstance(value, ConstrainedList):
             for val in value:
                 if not isinstance(val, self.valType):
@@ -256,7 +275,7 @@ class ConstrainedList(list):
                              "with different types (inferred %s type"
                             % (self.valType.__name__, value.valType.__name__)))
 
-    def __checkElement_(self, value):
+    def __checkElement_(self, value) -> None:
         if not isinstance(value, self.valType):
             raise TypeError(
                 "Expected element to be of type %s (inferred %s type)"
