@@ -2,6 +2,7 @@ import time
 import threading
 import queue
 from enum import Enum
+from types import SimpleNamespace
 
 from d20.Manual.Exceptions import PlayerCreationError
 from d20.Manual.Logger import logging, Logger
@@ -26,7 +27,7 @@ from typing import List, Dict, Optional
 LOGGER: Logger = logging.getLogger(__name__)
 
 
-class NPCTracker(object):  # RX: Eventually add type for asyncData
+class NPCTracker(object):
     """NPCTracker
 
         This class tracks an individual NPC and provides a unified
@@ -39,11 +40,11 @@ class NPCTracker(object):  # RX: Eventually add type for asyncData
             rpcServer: Instance of RPCServer
     """
     def __init__(self, *, id: int, npc: NPC, rpcServer: RPCServer,
-                 asyncData, **kwargs) -> None:
+                 asyncData: SimpleNamespace, **kwargs) -> None:
         # Process parameters
         self._state: PlayerState = PlayerState.stopped
         self.memory: Dict = dict()
-        self._inst: NPCTemplate  # RX:_inst will always get filled in createNPC
+        self._inst: NPCTemplate
         self._runtime: float = 0.0
         self.dataQueue: queue.Queue[FileObject] = queue.Queue()
         self.dHandler: PlayerDirectoryHandler = \
@@ -53,7 +54,7 @@ class NPCTracker(object):  # RX: Eventually add type for asyncData
             self.id: int = id
             self.npc: NPC = npc
             self.rpcServer: RPCServer = rpcServer
-            self.asyncData = asyncData
+            self.asyncData: SimpleNamespace = asyncData
         except KeyError as e:
             LOGGER.exception("Unable to create NPC Tracker")
             raise PlayerCreationError(e) from None
@@ -99,7 +100,7 @@ class NPCTracker(object):  # RX: Eventually add type for asyncData
 
     def createNPC(self) -> None:
         # Set Options
-        if not self.npc.config:  # RX: Hopefully this is appropriate
+        if not self.npc.config:
             LOGGER.error(("NPC {0} does not have configs set".format(
                 self.npc.name)))
             return
@@ -275,7 +276,7 @@ class BackStoryTracker:
         return self.__options
 
     def createBackStory(self) -> None:
-        if not self.backstory.config:  # RX: Hopefully this is appropriate
+        if not self.backstory.config:
             LOGGER.error(("Backstory {0} does not have configs set".format(
                 self.backstory.name)))
             return
@@ -453,7 +454,7 @@ class PlayerTracker(object):
 
     def createClone(self, clone_id: Optional[int] = None,
                     tainted: bool = False) -> Optional['CloneTracker']:
-        if not self.player.config:  # RX: Hopefully this is appropriate
+        if not self.player.config:
             LOGGER.error(("Player {0} does not have configs set".format(
                 self.player.name)))
             return None

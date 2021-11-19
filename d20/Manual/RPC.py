@@ -66,7 +66,7 @@ class Entity:
         self.clone: Optional[int] = clone_id
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Entity):   # RX added this
+        if not isinstance(other, Entity):
             return False
 
         if self.entity_type != other.entity_type:

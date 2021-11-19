@@ -16,7 +16,7 @@ from d20.Manual.Facts.Fields import (SimpleField,
 from d20.Manual.BattleMap import FactTable, FileObject
 from d20.Manual.GameMaster import GameMaster
 
-from typing import Optional, Dict, OrderedDict, Tuple, Union, Set, List
+from typing import Optional, Dict, OrderedDict, Tuple, Union, List
 
 
 def tsTodt(input: float) -> str:
@@ -234,7 +234,7 @@ class BaseCmd(cmd.Cmd):
             filename: str = arg
         elif self.gm.options:
             filename = self.gm.options.statefile
-        else:   # RX: Added as an edge case option so that i can do elif above
+        else:
             sys.stdout.write("No save path was found\n")
             return
 
@@ -430,7 +430,7 @@ class BaseCmd(cmd.Cmd):
 
         if arg is None:
             sys.stdout.write("Hyp id required\n")
-            return False  # RX: Check?
+            return False
 
         try:
             inst: Fact = self._find_hyp(arg)
@@ -526,7 +526,7 @@ class ObjectCmd(BaseCmd):
         childHyps: str = createHypsList('child', self.gm, self.obj)
         sys.stdout.write("Child Hyps:\n%s\n" % (childHyps))
 
-    def _find_items(self, data: FactTable, children: Set) -> List[Tuple]:
+    def _find_items(self, data: FactTable, children: List[int]) -> List[Tuple]:
         itemMetadata: Tuple = collections.namedtuple('itemMetadata',
                                                      ['id',
                                                       'type',
@@ -543,7 +543,10 @@ class ObjectCmd(BaseCmd):
 
         return rows
 
-    def _do_items(self, _type: str, data: FactTable, children: Set) -> None:
+    def _do_items(self, _type: str,
+                  data: FactTable,
+                  children: List[int]
+                  ) -> None:
         """Print items related to this object"""
         rows: List[Tuple] = self._find_items(data, children)
 
@@ -566,18 +569,24 @@ class FactHypBaseCmd(BaseCmd):
     def __init__(self, _type: str, gameMaster: GameMaster, item: Fact,
                  depthList: Optional[List] = None) -> None:
         super().__init__(gameMaster, depthList)
-        # Append item to depth list
-        self._type: str = _type
-        self.depthList.append(item)
-        self.prompt: str = "%s %d > " % (self._type, item.id)
-        self.item: Fact = item
+        if item.id is not None:
+            # Append item to depth list
+            self._type: str = _type
+            self.depthList.append(item)
+            self.prompt: str = "%s %d > " % (self._type, item.id)
+            self.item: Fact = item
+        else:
+            sys.stdout.write("Something went wrong, Fact had no ID\n")
 
     def write_list(self, out: str) -> None:
-        sys.stdout.write("\n%s %d:\n" % (self._type.capitalize(),
-                                         self.item.id))
-        sys.stdout.write("--------------\n")
-        sys.stdout.write(out)
-        sys.stdout.write("--------------\n\n")
+        if self.item.id is not None:
+            sys.stdout.write("\n%s %d:\n" % (self._type.capitalize(),
+                                             self.item.id))
+            sys.stdout.write("--------------\n")
+            sys.stdout.write(out)
+            sys.stdout.write("--------------\n\n")
+        else:
+            sys.stdout.write("Something went wrong, Fact had no ID\n")
 
     def _find_info(self) -> OrderedDict:
         created: str = tsTodt(self.item.created)
@@ -605,7 +614,7 @@ class FactHypBaseCmd(BaseCmd):
             return item_info
 
         else:
-            raise Exception  # RX: this OK?
+            raise Exception
 
     def do_info(self, arg) -> None:
         """Print info about item"""

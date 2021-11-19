@@ -18,7 +18,7 @@ class Arguments:
         self._schemaGenerator = CerberusSchemaGenerator()
 
         for arg in args:
-            if not isinstance(arg, tuple):  # RX: Still needed?
+            if not isinstance(arg, tuple):
                 raise TypeError("Expected a tuple of (name, {args})")
             (name, arguments) = arg
 

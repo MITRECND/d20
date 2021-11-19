@@ -66,7 +66,7 @@ def loadScreen(screen_class: Type['ScreenTemplate'], **kwargs: str) -> None:
         raise ValueError("Player %s expects version %s or newer"
                          % (reg.name, reg.engine_version))
 
-    if reg.name is None:  # RX: Hopefully this is an appropriate way to handle
+    if reg.name is None:
         raise ValueError("NPC does not have a name")
 
     global SCREENS

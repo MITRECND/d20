@@ -1,6 +1,7 @@
 import time
 from enum import Enum
 from collections.abc import Iterable
+from types import SimpleNamespace
 
 from requests.packages.urllib3.util import Retry
 from requests.adapters import HTTPAdapter
@@ -50,8 +51,7 @@ class ConsoleInterface(object):
             self._directoryHandler: PlayerDirectoryHandler = \
                 kwargs['directoryHandler']
             self._rpc: RPCClient = kwargs['rpc_client']
-            # RX: AsyncData is Murad's custom class, may have to revisit
-            self._async: str = kwargs['asyncData']
+            self._async: SimpleNamespace = kwargs['asyncData']
             self._config_: Union[str, Dict, None] = kwargs.get('config', None)
         except KeyError:
             LOGGER.critical("Expected argument not passed to init",
@@ -83,7 +83,7 @@ class ConsoleInterface(object):
         session: Session = Session()
 
         proxies: Dict[str, str] = dict()
-        if isinstance(self._config_, dict):  # RX: Confirm dict
+        if isinstance(self._config_, dict):
             if 'http_proxy' in self._config_:
                 proxies['http'] = self._config_['http_proxy']
             if 'https_proxy' in self._config_:
@@ -104,7 +104,7 @@ class ConsoleInterface(object):
         return session
 
     @property
-    def async_(self):  # RX: Revisit here
+    def async_(self) -> SimpleNamespace:
         """asyncio support data
 
             This property/method returns a data object that contains three
@@ -201,7 +201,6 @@ class ConsoleInterface(object):
 
             Returns: The object id
         """
-        # RX: Do we still need the isinstance checks?
         if (parentObjects is not None
                 and not isinstance(parentObjects, Iterable)):
             raise ValueError("parent objects must be a list")

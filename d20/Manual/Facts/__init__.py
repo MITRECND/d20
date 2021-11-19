@@ -12,7 +12,7 @@ from .Fields import FactField
 from d20.Manual.Logger import logging, Logger
 from d20.Manual.Utils import loadExtras
 
-from typing import Callable, List, Dict, Optional, Set, Union, Tuple
+from typing import Callable, List, Dict, Optional, Set, Union, Tuple, Type
 
 
 LOGGER: Logger = logging.getLogger(__name__)
@@ -480,7 +480,7 @@ class Fact(metaclass=_FactMeta_):
         return cls(**kwargs)
 
 
-def getFactClass(name) -> 'Fact':
+def getFactClass(name: str) -> Type['Fact']:
     """Helper method to return a fact class by name"""
     try:
         return globals().get(name, None)
