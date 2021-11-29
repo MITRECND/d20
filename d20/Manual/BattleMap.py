@@ -17,9 +17,10 @@ from d20.Manual.Temporary import (
     TemporaryObjectStream
 )
 
-from typing import (ItemsView, List, Dict,
+from typing import (ItemsView, List, Dict, Type,
                     Optional, Set, Union, Match,
-                    Type, Iterator, ValuesView)
+                    Iterator, ValuesView, TypeVar)
+FactType = TypeVar('FactType', bound='FactTable')
 
 
 # Fact and Hypothesis 'table' is organized using a python dict
@@ -162,7 +163,7 @@ class FactTable(object):
         return data
 
     @classmethod
-    def load(cls: Type['FactTable'], data: Dict) -> 'FactTable':
+    def load(cls: Type[FactType], data: Dict) -> FactType:
         ft = cls()
         ft._ids = data['ids']
         for (_type, column) in data['columns'].items():

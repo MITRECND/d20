@@ -22,10 +22,11 @@ from d20.Manual.Trackers import (NPCTracker,
 from d20.Manual.BattleMap import (FactTable,
                                   HypothesisTable,
                                   ObjectList,
-                                  FileObject)
+                                  FileObject, TableColumn)
 from d20.Manual.RPC import (RPCRequest, RPCServer,
                             RPCResponseStatus,
                             RPCCommands, RPCStartStreamRequest,
+                            RPCStopStreamRequest,
                             RPCStreamCommands,
                             Entity)
 from d20.Manual.Temporary import TemporaryHandler
@@ -40,11 +41,7 @@ from d20.BackStories import (
     resolveBackStoryFacts)
 from d20.Screens import Screen, verifyScreens
 
-from typing import (List, Dict, Iterable,
-                    Tuple, Optional, TypeVar,
-                    Union, NewType, Type)
-Tasync = TypeVar('Tasync')
-TWList = NewType('TWList', Tuple[Union[str, List[str]], Optional[int]])
+from typing import List, Dict, Tuple, Optional, Union
 
 LOGGER: Logger = logging.getLogger(__name__)
 
@@ -84,7 +81,7 @@ class GameMaster(object):
         self._idleCount: int = 0
         self._idleTicks: int = 100  # 'ticks' i.e., primarly loop cycles
 
-        self.factWaitList: List[TWList] = list()
+        self.factWaitList: List[Tuple[List[str], RPCRequest]] = list()
         self.factStreamList: Dict[str, List] = dict()
         self.hypStreamList: Dict[str, List] = dict()
         self.objectStreamList: List = list()
@@ -104,7 +101,6 @@ class GameMaster(object):
             eventloop=None,
             eventwatcher=None
         )
-        # RX: modify to be simple namespace
 
         self.tempHandler: Optional[TemporaryHandler] = None
 
@@ -126,19 +122,6 @@ class GameMaster(object):
             else:
                 raise TypeError("%s is an invalid keyword argument" % (name))
 
-        # RX: Moved this block of code down (L 149-153, 197-200) to make more
-        # streamlined
-
-        # if self.save_state is None and self.options is None:
-        #     raise TypeError(("Either Save State or "
-        #                      "options must be specified"))
-        # if self.save_state is None:
-        #     if 'temporary' not in self.options:
-        #         raise RuntimeError(
-        #            "Expected temporary directory to be specified in options")
-
-        #     self.tempHandler = TemporaryHandler(self.options.temporary)
-
         # Idle Wait Default: 1 second
         self._idleWait: int = self.Config.d20.get('graceTime', 1)
 
@@ -150,7 +133,6 @@ class GameMaster(object):
 
         if self.save_state is not None:
             self.newGamePlus = True
-        # RX: Changed from else to make mypy happy
         elif self.options is not None:
             if 'temporary' not in self.options:
                 raise RuntimeError(
@@ -512,7 +494,7 @@ class GameMaster(object):
         """Load a game from a save_state
         """
 
-        if self.save_state is None:  # RX: Check for save_state to be populated
+        if self.save_state is None:
             raise TypeError(("Save state must be specified"))
 
         try:
@@ -717,71 +699,90 @@ class GameMaster(object):
                 msg, reason="args field formatted incorrectly")
             return
 
-    def _checkFactStreamerConditions(self, fact: Fact, msg: RPCRequest,
-                                     stream_msg):
+    def _checkFactStreamerConditions(self,
+                                     fact: Fact,
+                                     msg: RPCRequest,
+                                     stream_msg: RPCStartStreamRequest
+                                     ) -> bool:
         if msg.entity == stream_msg.entity:
             return False
 
         if stream_msg.stream.command == RPCStreamCommands.childFactStream:
             args = stream_msg.stream.args
-            if (args.object_id is not None and
-                    args.object_id not in fact.parentObjects):
-                return False
-            elif (args.fact_id is not None and
-                    args.fact_id not in fact.parentFacts):
-                return False
-            elif (args.hyp_id is not None and
-                    args.hyp_id not in fact.parentHyps):
+            if isinstance(args, Namespace):
+                if (args.object_id is not None and
+                        args.object_id not in fact.parentObjects):
+                    return False
+                elif (args.fact_id is not None and
+                        args.fact_id not in fact.parentFacts):
+                    return False
+                elif (args.hyp_id is not None and
+                        args.hyp_id not in fact.parentHyps):
+                    return False
+            else:
                 return False
 
         return True
 
-    def _checkHypStreamerConditions(self, hyp: Fact, msg: RPCRequest,
-                                    stream_msg):
+    def _checkHypStreamerConditions(self,
+                                    hyp: Fact,
+                                    msg: RPCRequest,
+                                    stream_msg: RPCStartStreamRequest
+                                    ) -> bool:
         if msg.entity == stream_msg.entity:
             return False
 
         if stream_msg.stream.command == RPCStreamCommands.childHypStream:
             args = stream_msg.stream.args
-            if (args.object_id is not None and
-                    args.object_id not in hyp.parentObjects):
-                return False
-            elif (args.fact_id is not None and
-                    args.fact_id not in hyp.parentFacts):
-                return False
-            elif (args.hyp_id is not None and
-                    args.hyp_id not in hyp.parentHyps):
+            if isinstance(args, Namespace):
+                if (args.object_id is not None and
+                        args.object_id not in hyp.parentObjects):
+                    return False
+                elif (args.fact_id is not None and
+                        args.fact_id not in hyp.parentFacts):
+                    return False
+                elif (args.hyp_id is not None and
+                        args.hyp_id not in hyp.parentHyps):
+                    return False
+            else:
                 return False
 
         return True
 
-    def _checkObjectStreamerConditions(self, obj, msg, stream_msg):
+    def _checkObjectStreamerConditions(self,
+                                       obj: FileObject,
+                                       msg: RPCRequest,
+                                       stream_msg: RPCStartStreamRequest
+                                       ) -> bool:
         if msg.entity == stream_msg.entity:
             return False
 
         if stream_msg.stream.command == RPCStreamCommands.childObjectStream:
             args = stream_msg.stream.args
-            if (args.object_id is not None and
-                    args.object_id not in obj.parentObjects):
-                return False
-            elif (args.fact_id is not None and
-                    args.fact_id not in obj.parentFacts):
-                return False
-            elif (args.hyp_id is not None and
-                    args.hyp_id not in obj.parentHyps):
+            if isinstance(args, Namespace):
+                if (args.object_id is not None and
+                        args.object_id not in obj.parentObjects):
+                    return False
+                elif (args.fact_id is not None and
+                        args.fact_id not in obj.parentFacts):
+                    return False
+                elif (args.hyp_id is not None and
+                        args.hyp_id not in obj.parentHyps):
+                    return False
+            else:
                 return False
         return True
 
-    def handleAddFact(self, msg):
-        if 'fact' not in msg.args:
+    def handleAddFact(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'fact' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'fact' not found in args")
             return
 
-        fact = msg.args.fact
+        fact: Fact = msg.args.fact
 
         try:
-            fact_id = self.facts.add(fact)
+            fact_id: int = self.facts.add(fact)
         except TypeError as e:
             self.rpc.sendErrorResponse(
                 msg, reason=str(e))
@@ -792,10 +793,12 @@ class GameMaster(object):
             obj.addChildFact(fact_id)
         for pfct in fact.parentFacts:
             fct = self.facts.findById(pfct)
-            fct.addChildFact(fact_id)
+            if fct is not None:
+                fct.addChildFact(fact_id)
         for phyp in fact.parentHyps:
             hyp = self.hyps.findById(phyp)
-            hyp.addChildFact(fact_id)
+            if hyp is not None:
+                hyp.addChildFact(fact_id)
 
         self.rpc.sendOKResponse(msg)
 
@@ -830,8 +833,8 @@ class GameMaster(object):
                     LOGGER.exception(("Unexpected exception sending fact "
                                       "to player"))
 
-    def handleAddHyp(self, msg):
-        if 'hyp' not in msg.args:
+    def handleAddHyp(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'hyp' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'hyp' not found in args")
             return
@@ -850,10 +853,12 @@ class GameMaster(object):
             obj.addChildHyp(hyp_id)
         for pfct in hyp.parentFacts:
             fct = self.facts.findById(pfct)
-            fct.addChildHyp(hyp_id)
+            if fct is not None:
+                fct.addChildHyp(hyp_id)
         for phyp in hyp.parentHyps:
             hyp = self.hyps.findById(phyp)
-            hyp.addChildHyp(hyp_id)
+            if hyp is not None:
+                hyp.addChildHyp(hyp_id)
 
         self.rpc.sendOKResponse(msg)
 
@@ -878,8 +883,8 @@ class GameMaster(object):
                     LOGGER.exception(("Unexpected exception sending hyp "
                                       "to player"))
 
-    def promoteHyp(self, hyp_id):
-        item = self.hyps.remove(hyp_id)
+    def promoteHyp(self, hyp_id: int) -> Fact:
+        item: Fact = self.hyps.remove(hyp_id)
         item._untaint()
         fact_id = self.facts.add(item)
 
@@ -890,36 +895,41 @@ class GameMaster(object):
             obj.addChildFact(fact_id)
         for pfct in item.parentFacts:
             fct = self.facts.findById(pfct)
-            fct.remChildHyp(hyp_id)
-            fct.addChildFact(fact_id)
+            if fct is not None:
+                fct.remChildHyp(hyp_id)
+                fct.addChildFact(fact_id)
         for phyp in item.parentHyps:
             hyp = self.hyps.findById(phyp)
-            hyp.remChildHyp(hyp_id)
-            hyp.addChildFact(fact_id)
+            if hyp is not None:
+                hyp.remChildHyp(hyp_id)
+                hyp.addChildFact(fact_id)
         for cobj in item.childObjects:
             obj = self.objects[cobj]
-            obj.remParentHyp(hyp_id)
-            obj.addParentFact(fact_id)
+            if obj is not None:
+                obj.remParentHyp(hyp_id)
+                obj.addParentFact(fact_id)
         for cfct in item.childFacts:
             fct = self.facts.findById(cfct)
-            fct.remParentHyp(hyp_id)
-            fct.addParentFact(fact_id)
+            if fct is not None:
+                fct.remParentHyp(hyp_id)
+                fct.addParentFact(fact_id)
         for chyp in item.childHyps:
             hyp = self.hyps.findById(chyp)
-            hyp.remParentHyp(hyp_id)
-            hyp.addParentFact(fact_id)
+            if hyp is not None:
+                hyp.remParentHyp(hyp_id)
+                hyp.addParentFact(fact_id)
 
         return item
 
-    def handlePromote(self, msg):
-        if 'hyp_id' not in msg.args:
+    def handlePromote(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'hyp_id' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'hyp_id' not found in args")
             return
 
-        hyp_id = msg.args.hyp_id
+        hyp_id: int = msg.args.hyp_id
         try:
-            item = self.promoteHyp(hyp_id)
+            item: Fact = self.promoteHyp(hyp_id)
         except Exception:
             self.rpc.sendErrorResponse(
                 msg, reason="Unable to promote hyp to fact")
@@ -927,22 +937,23 @@ class GameMaster(object):
 
         self.rpc.sendOKResponse(msg, result={'fact': item})
 
-    def handleAddObject(self, msg):
+    def handleAddObject(self, msg: RPCRequest) -> None:
         try:
-            object_data = msg.args.object_data
-            creator = msg.args.creator
-            parentObjects = msg.args.parentObjects
-            parentFacts = msg.args.parentFacts
-            parentHyps = msg.args.parentHyps
-            metadata = msg.args.metadata
-            encoding = msg.args.encoding
+            if isinstance(msg.args, Namespace):
+                object_data = msg.args.object_data
+                creator = msg.args.creator
+                parentObjects = msg.args.parentObjects
+                parentFacts = msg.args.parentFacts
+                parentHyps = msg.args.parentHyps
+                metadata = msg.args.metadata
+                encoding = msg.args.encoding
         except AttributeError as e:
             self.rpc.sendErrorResponse(msg, reason=str(e))
             return
 
-        isduplicate = False
+        isduplicate: bool = False
         try:
-            FileObj = self.objects.addObject(
+            FileObj: Optional[FileObject] = self.objects.addObject(
                 object_data,
                 _creator_=creator,
                 _parentObjects_=parentObjects,
@@ -959,6 +970,10 @@ class GameMaster(object):
                 reason="Unable to track object: %s" % (str(e)))
             return
 
+        if FileObj is None:
+            self.rpc.sendErrorResponse(msg, reason="Fileobject not found")
+            return
+
         if parentObjects:
             for pid in parentObjects:
                 pobj = self.objects[pid]
@@ -966,13 +981,15 @@ class GameMaster(object):
         if parentFacts:
             for fid in parentFacts:
                 pfct = self.facts.findById(fid)
-                pfct.addChildObject(FileObj.id)
+                if pfct is not None:
+                    pfct.addChildObject(FileObj.id)
         if parentHyps:
             for hid in parentHyps:
-                phyp = self.hypotheses.findById(hid)
-                phyp.addChildObject(FileObj.id)
+                phyp = self.hyps.findById(hid)
+                if phyp is not None:
+                    phyp.addChildObject(FileObj.id)
 
-        result = {'object_id': FileObj.id}
+        result: Dict[str, Union[int, FileObject]] = {'object_id': FileObj.id}
         self.rpc.sendOKResponse(msg, result=result)
 
         # Send object to streamers
@@ -991,38 +1008,40 @@ class GameMaster(object):
                 except Exception:
                     LOGGER.exception("Error calling NPC handleData function")
 
-    def handleGetObject(self, msg):
+    def handleGetObject(self, msg: RPCRequest) -> None:
         try:
-            # Try to reference fields to ensure msg has required fields
-            msg.entity.isPlayer
-            msg.entity.id
-            object_id = msg.args.object_id
+            if isinstance(msg.args, Namespace):
+                # Try to reference fields to ensure msg has required fields
+                msg.entity.isPlayer
+                msg.entity.id
+                object_id = msg.args.object_id
         except AttributeError as e:
             self.rpc.sendErrorResponse(msg, reason=str(e))
             return
 
         try:
-            FileObj = self.objects[object_id]
+            FileObj: FileObject = self.objects[object_id]
         except KeyError:
             self.rpc.sendErrorResponse(msg, reason="No object by that id")
             return
 
-        result = {'object': FileObj}
+        result: Dict[str, FileObject] = {'object': FileObj}
         self.rpc.sendOKResponse(msg, result=result)
 
-    def handleGetAllObjects(self, msg):
-        result = {'object_list': self.objects.tolist()}
+    def handleGetAllObjects(self, msg: RPCRequest) -> None:
+        result: Dict[str, List[FileObject]] = \
+            {'object_list': self.objects.tolist()}
         self.rpc.sendOKResponse(msg, result=result)
 
-    def handleGetFact(self, msg):
-        if 'fact_id' not in msg.args:
+    def handleGetFact(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'fact_id' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'fact_id' not found in args")
             return
 
-        fact_id = msg.args.fact_id
+        fact_id: int = msg.args.fact_id
 
-        fact = self.facts.findById(fact_id)
+        fact: Optional[Fact] = self.facts.findById(fact_id)
 
         if fact is not None:
             result = {'fact': fact}
@@ -1030,14 +1049,14 @@ class GameMaster(object):
         else:
             self.rpc.sendErrorResponse(msg, reason="not found")
 
-    def handleGetAllFacts(self, msg):
-        if 'fact_type' not in msg.args:
+    def handleGetAllFacts(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'fact_type' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'fact_type' not found in args")
             return
 
-        fact_types = msg.args.fact_type
-        fact_list = list()
+        fact_types: List[str] = msg.args.fact_type
+        fact_list: List[Fact] = list()
 
         try:
             for ft in fact_types:
@@ -1052,14 +1071,14 @@ class GameMaster(object):
         result = {'fact_list': fact_list}
         self.rpc.sendOKResponse(msg, result=result)
 
-    def handleGetHyp(self, msg):
-        if 'hyp_id' not in msg.args:
+    def handleGetHyp(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'hyp_id' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'hyp_id' not found in args")
             return
 
-        hyp_id = msg.args.hyp_id
-        hyp = self.hyps.findById(hyp_id)
+        hyp_id: int = msg.args.hyp_id
+        hyp: Optional[Fact] = self.hyps.findById(hyp_id)
 
         if hyp is not None:
             result = {'hyp': hyp}
@@ -1067,14 +1086,14 @@ class GameMaster(object):
         else:
             self.rpc.sendErrorResponse(msg, reason="not found")
 
-    def handleGetAllHyps(self, msg):
-        if 'hyp_type' not in msg.args:
+    def handleGetAllHyps(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'hyp_type' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'hyp_type' not found in args")
             return
 
-        hyp_types = msg.args.hyp_type
-        hyp_list = list()
+        hyp_types: List[str] = msg.args.hyp_type
+        hyp_list: List[Fact] = list()
 
         try:
             for ft in hyp_types:
@@ -1089,8 +1108,11 @@ class GameMaster(object):
         result = {'hyp_list': hyp_list}
         self.rpc.sendOKResponse(msg, result=result)
 
-    def handleWaitTillFact(self, msg):
-        fact_type: Union[str, List[str]] = msg.args.fact_type
+    def handleWaitTillFact(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace):
+            return
+
+        fact_type: List[str] = msg.args.fact_type
         last_fact: Optional[int] = msg.args.last_fact
 
         # Based on last_fact, see if any facts have been added
@@ -1101,12 +1123,14 @@ class GameMaster(object):
                 facts = self.facts.getColumn(ft)
                 if facts is not None:
                     for fact in facts:
-                        if not newer_fact:
-                            if fact.id > last_fact:
-                                newer_fact = fact
-                        else:
-                            if fact.id > last_fact and fact.id < newer_fact.id:
-                                newer_fact = fact
+                        if fact.id is not None:
+                            if not newer_fact:
+                                if fact.id > last_fact:
+                                    newer_fact = fact
+                            else:
+                                if fact.id > last_fact and \
+                                        fact.id < newer_fact.id:
+                                    newer_fact = fact
 
             if newer_fact:
                 result = {'fact': newer_fact}
@@ -1115,14 +1139,15 @@ class GameMaster(object):
         # else need to put data into wait list
         self.factWaitList.append((fact_type, msg))
 
-    def streamHandleFactStreamStart(self, msg: RPCStartStreamRequest):
+    def streamHandleFactStreamStart(self, msg: RPCStartStreamRequest) -> None:
         if isinstance(msg.stream.args, Namespace):
-            fact_types = msg.stream.args.fact_types
-            only_latest = msg.stream.args.only_latest
+            fact_types: List[str] = msg.stream.args.fact_types
+            only_latest: bool = msg.stream.args.only_latest
 
             if not only_latest:
                 for ft in fact_types:
-                    factColumn = self.facts.getColumn(ft)
+                    factColumn: Optional[TableColumn] = \
+                        self.facts.getColumn(ft)
                     if factColumn is not None:
                         for fact in factColumn:
                             result = {'fact': fact}
@@ -1135,146 +1160,164 @@ class GameMaster(object):
                     self.factStreamList[ft] = list()
                 self.factStreamList[ft].append((msg))
 
-    def streamHandleFactStreamStop(self, msg):
-        stream_id = msg.args.stream_id
-        for (fact_type, streamers) in self.factStreamList.items():
-            delList = list()
-            for streamer in streamers:
-                if (streamer.id == stream_id and
-                        streamer.entity == msg.entity):
-                    delList.append(streamer)
+    def streamHandleFactStreamStop(self, msg: RPCStopStreamRequest) -> None:
+        if isinstance(msg.args, Namespace):
+            stream_id: int = msg.args.stream_id
+            for (fact_type, streamers) in self.factStreamList.items():
+                delList = list()
+                for streamer in streamers:
+                    if (streamer.id == stream_id and
+                            streamer.entity == msg.entity):
+                        delList.append(streamer)
 
-            for streamer in delList:
-                streamers.remove(streamer)
+                for streamer in delList:
+                    streamers.remove(streamer)
 
-    def streamHandleHypStreamStart(self, msg):
-        hyp_types = msg.stream.args.hyp_types
-        only_latest = msg.stream.args.only_latest
+    def streamHandleHypStreamStart(self, msg: RPCStartStreamRequest) -> None:
+        if isinstance(msg.stream.args, Namespace):
+            hyp_types: List[str] = msg.stream.args.hyp_types
+            only_latest: bool = msg.stream.args.only_latest
 
-        if not only_latest:
+            if not only_latest:
+                for ft in hyp_types:
+                    hypColumn: Optional[TableColumn] = self.hyps.getColumn(ft)
+                    if hypColumn is not None:
+                        for hyp in hypColumn:
+                            result = {'hyp': hyp}
+                            self.rpc.sendResponse(msg,
+                                                  RPCResponseStatus.ok,
+                                                  result=result)
+
             for ft in hyp_types:
-                hypColumn = self.hyps.getColumn(ft)
-                if hypColumn is not None:
-                    for hyp in hypColumn:
-                        result = {'hyp': hyp}
-                        self.rpc.sendResponse(msg,
-                                              RPCResponseStatus.ok,
-                                              result=result)
+                if ft not in self.hypStreamList:
+                    self.hypStreamList[ft] = list()
+                self.hypStreamList[ft].append((msg))
 
-        for ft in hyp_types:
-            if ft not in self.hypStreamList:
-                self.hypStreamList[ft] = list()
-            self.hypStreamList[ft].append((msg))
+    def streamHandleHypStreamStop(self, msg: RPCStopStreamRequest) -> None:
+        if isinstance(msg.args, Namespace):
+            stream_id: int = msg.args.stream_id
+            for (hyp_type, streamers) in self.hypStreamList.items():
+                delList = list()
+                for streamer in streamers:
+                    if (streamer.id == stream_id and
+                            streamer.entity == msg.entity):
+                        delList.append(streamer)
 
-    def streamHandleHypStreamStop(self, msg):
-        stream_id = msg.args.stream_id
-        for (hyp_type, streamers) in self.hypStreamList.items():
-            delList = list()
-            for streamer in streamers:
-                if (streamer.id == stream_id and
-                        streamer.entity == msg.entity):
-                    delList.append(streamer)
+                for streamer in delList:
+                    streamers.remove(streamer)
 
-            for streamer in delList:
-                streamers.remove(streamer)
+    def streamHandleChildFactStreamStart(self,
+                                         msg: RPCStartStreamRequest
+                                         ) -> None:
+        if isinstance(msg.stream.args, Namespace):
+            fact_id: int = msg.stream.args.fact_id
+            object_id: int = msg.stream.args.object_id
+            hyp_id: int = msg.stream.args.hyp_id
+            fact_types: List[str] = msg.stream.args.fact_types
+            only_latest: bool = msg.stream.args.only_latest
 
-    def streamHandleChildFactStreamStart(self, msg):
-        fact_id = msg.stream.args.fact_id
-        object_id = msg.stream.args.object_id
-        hyp_id = msg.stream.args.hyp_id
-        fact_types = msg.stream.args.fact_types
-        only_latest = msg.stream.args.only_latest
-
-        if not only_latest:
+            if not only_latest:
+                for ft in fact_types:
+                    factColumn: Optional[TableColumn] = \
+                        self.facts.getColumn(ft)
+                    if factColumn is not None:
+                        for fact in factColumn:
+                            if (object_id is not None and
+                                    object_id not in fact.parentObjects):
+                                continue
+                            elif(fact_id is not None and
+                                    fact_id not in fact.parentFacts):
+                                continue
+                            elif(hyp_id is not None and
+                                    hyp_id not in fact.parentHyps):
+                                continue
+                            result = {'fact': fact}
+                            self.rpc.sendResponse(msg,
+                                                  RPCResponseStatus.ok,
+                                                  result=result)
             for ft in fact_types:
-                factColumn = self.facts.getColumn(ft)
-                if factColumn is not None:
-                    for fact in factColumn:
-                        if (object_id is not None and
-                                object_id not in fact.parentObjects):
-                            continue
-                        elif(fact_id is not None and
-                                fact_id not in fact.parentFacts):
-                            continue
-                        elif(hyp_id is not None and
-                                hyp_id not in fact.parentHyps):
-                            continue
-                        result = {'fact': fact}
-                        self.rpc.sendResponse(msg,
-                                              RPCResponseStatus.ok,
-                                              result=result)
-        for ft in fact_types:
-            if ft not in self.factStreamList:
-                self.factStreamList[ft] = list()
-            self.factStreamList[ft].append(msg)
+                if ft not in self.factStreamList:
+                    self.factStreamList[ft] = list()
+                self.factStreamList[ft].append(msg)
 
-    def streamHandleChildFactStreamStop(self, msg):
+    def streamHandleChildFactStreamStop(self,
+                                        msg: RPCStopStreamRequest
+                                        ) -> None:
         self.streamHandleFactStreamStop(msg)
 
-    def streamHandleChildHypStreamStart(self, msg):
-        fact_id = msg.stream.args.fact_id
-        object_id = msg.stream.args.object_id
-        hyp_id = msg.stream.args.hyp_id
-        types = msg.stream.args.types
-        only_latest = msg.stream.args.only_latest
+    def streamHandleChildHypStreamStart(self,
+                                        msg: RPCStartStreamRequest
+                                        ) -> None:
+        if isinstance(msg.stream.args, Namespace):
+            fact_id: int = msg.stream.args.fact_id
+            object_id: int = msg.stream.args.object_id
+            hyp_id: int = msg.stream.args.hyp_id
+            types: List[str] = msg.stream.args.types
+            only_latest: bool = msg.stream.args.only_latest
 
-        if not only_latest:
+            if not only_latest:
+                for ft in types:
+                    hypColumn: Optional[TableColumn] = self.hyps.getColumn(ft)
+                    if hypColumn is not None:
+                        for hyp in hypColumn:
+                            if (object_id is not None and
+                                    object_id not in hyp.parentObjects):
+                                continue
+                            elif(fact_id is not None and
+                                    fact_id not in hyp.parentFacts):
+                                continue
+                            elif(hyp_id is not None and
+                                    hyp_id not in hyp.parentHyps):
+                                continue
+                            result = {'hyp': hyp}
+                            self.rpc.sendResponse(msg,
+                                                  RPCResponseStatus.ok,
+                                                  result=result)
             for ft in types:
-                hypColumn = self.hyps.getColumn(ft)
-                if hypColumn is not None:
-                    for hyp in hypColumn:
-                        if (object_id is not None and
-                                object_id not in hyp.parentObjects):
-                            continue
-                        elif(fact_id is not None and
-                                fact_id not in hyp.parentFacts):
-                            continue
-                        elif(hyp_id is not None and
-                                hyp_id not in hyp.parentHyps):
-                            continue
-                        result = {'hyp': hyp}
-                        self.rpc.sendResponse(msg,
-                                              RPCResponseStatus.ok,
-                                              result=result)
-        for ft in types:
-            if ft not in self.hypStreamList:
-                self.hypStreamList[ft] = list()
-            self.hypStreamList[ft].append(msg)
+                if ft not in self.hypStreamList:
+                    self.hypStreamList[ft] = list()
+                self.hypStreamList[ft].append(msg)
 
-    def streamHandleChildHypStreamStop(self, msg):
+    def streamHandleChildHypStreamStop(self,
+                                       msg: RPCStopStreamRequest
+                                       ) -> None:
         self.streamHandleHypStreamStop(msg)
 
-    def streamHandleChildObjectStreamStart(self, msg):
-        fact_id = msg.stream.args.fact_id
-        hyp_id = msg.stream.args.hyp_id
-        object_id = msg.stream.args.object_id
-        only_latest = msg.stream.args.only_latest
+    def streamHandleChildObjectStreamStart(self,
+                                           msg: RPCStartStreamRequest
+                                           ) -> None:
+        if isinstance(msg.stream.args, Namespace):
+            fact_id: int = msg.stream.args.fact_id
+            hyp_id: int = msg.stream.args.hyp_id
+            object_id: int = msg.stream.args.object_id
+            only_latest: bool = msg.stream.args.only_latest
 
-        if not only_latest:
-            for obj in self.objects:
-                if (object_id is not None and
-                        object_id not in obj.parentObjects):
-                    continue
-                elif(fact_id is not None and
-                        fact_id not in obj.parentFacts):
-                    continue
-                elif(hyp_id is not None and
-                        hyp_id not in obj.parentHyps):
-                    continue
-                result = {'object': obj}
-                self.rpc.sendResponse(msg,
-                                      RPCResponseStatus.ok,
-                                      result=result)
+            if not only_latest:
+                for obj in self.objects:
+                    if (object_id is not None and
+                            object_id not in obj.parentObjects):
+                        continue
+                    elif(fact_id is not None and
+                            fact_id not in obj.parentFacts):
+                        continue
+                    elif(hyp_id is not None and
+                            hyp_id not in obj.parentHyps):
+                        continue
+                    result = {'object': obj}
+                    self.rpc.sendResponse(msg,
+                                          RPCResponseStatus.ok,
+                                          result=result)
 
-        self.objectStreamList.append(msg)
+            self.objectStreamList.append(msg)
 
-    def streamHandleChildObjectStreamStop(self, msg):
-        stream_id = msg.args.stream_id
-        delList = list()
-        for streamer in self.objectStreamList:
-            if (streamer.id == stream_id and
-                    streamer.entity == msg.entity):
-                delList.append(streamer)
+    def streamHandleChildObjectStreamStop(self, msg: RPCStopStreamRequest):
+        if isinstance(msg.args, Namespace):
+            stream_id: int = msg.args.stream_id
+            delList = list()
+            for streamer in self.objectStreamList:
+                if (streamer.id == stream_id and
+                        streamer.entity == msg.entity):
+                    delList.append(streamer)
 
-        for streamer in delList:
-            self.objectStreamList.remove(streamer)
+            for streamer in delList:
+                self.objectStreamList.remove(streamer)
