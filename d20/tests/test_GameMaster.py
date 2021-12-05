@@ -3,6 +3,7 @@ from unittest import mock
 import argparse
 import os
 import tempfile
+import pytest
 
 from d20.Manual.GameMaster import GameMaster
 from d20.Manual.RPC import (
@@ -18,6 +19,29 @@ from d20.Manual.Facts import loadFacts
 
 loadFacts()
 
+args_ex = argparse.Namespace(
+    config=None,
+    debug=True,
+    dump_objects=None,
+    extra_actions=[],
+    extra_facts=[],
+    extra_npcs=[],
+    extra_players=[],
+    extra_screens=[],
+    file=None,
+    backstory_facts=None,
+    backstory_facts_path=None,
+    info_player=None,
+    list_npcs=False,
+    list_players=False,
+    list_screens=False,
+    load_file=None,
+    save_file=None,
+    temporary='/tmp/d20-test',
+    use_screen='json',
+    verbose=False,
+    version=False)
+
 
 class testGameMaster(unittest.TestCase):
     def setUp(self):
@@ -25,28 +49,8 @@ class testGameMaster(unittest.TestCase):
         self.testfile = tf.name
         tf.close()
 
-        self.args = argparse.Namespace(
-            config=None,
-            debug=True,
-            dump_objects=None,
-            extra_actions=[],
-            extra_facts=[],
-            extra_npcs=[],
-            extra_players=[],
-            extra_screens=[],
-            file=self.testfile,
-            backstory_facts=None,
-            backstory_facts_path=None,
-            info_player=None,
-            list_npcs=False,
-            list_players=False,
-            list_screens=False,
-            load_file=None,
-            save_file=None,
-            temporary='/tmp/d20-test',
-            use_screen='json',
-            verbose=False,
-            version=False)
+        self.args = args_ex
+        self.args.file = self.testfile
 
     def tearDown(self):
         os.remove(self.testfile)
@@ -69,6 +73,16 @@ class testGameMaster(unittest.TestCase):
         self.assertGreater(len(gm.screens), 0)
 
         gm.cleanup()
+
+    # def testLoad(self):
+    #     gm = GameMaster(options=self.args)
+    #     mock_npc = mock.MagicMock()
+    #     mock_npc.name = "HashNPC"
+    #     save_state = {
+    #             "npcs": [mock_npc]
+    #         }
+    #     gm.save_state = save_state
+    #     gm.registerNPCs(True)
 
 
 class testGameMasterHandlers(unittest.TestCase):
@@ -318,3 +332,94 @@ class testGameMasterHandlers(unittest.TestCase):
             msg,
             reason="Unable to track object: %s" % (error_string)
             )
+
+
+def testBackStoryFactLoad2(monkeypatch):
+    mockBSF = mock.Mock()
+    mock1 = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mockBSF)
+
+    args = args_ex
+    args.backstory_facts = """
+    facts:
+        - name: BulkAnalyzeFact
+          arguments:
+            directory: /path/to/files
+            recursive: False
+            enable: True
+        - name: VTDownloadFact
+          arguments:
+            vt_api_key: your_api_key
+            filehash: hash_to_lookup_and_download_for_analysis
+            enable: False
+    """
+
+    gm = GameMaster(options=args)
+    mockBSF.assert_called()
+    gm.cleanup()
+
+
+def testBackStoryFactPathLoad2(monkeypatch):
+    mockBSF = mock.Mock()
+    mock1 = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mockBSF)
+
+    tf = tempfile.NamedTemporaryFile(delete=False)
+    tf.write(b"""
+        facts:
+            - name: BulkAnalyzeFact
+              arguments:
+                directory: /path/to/files
+                recursive: False
+                enable: True
+            - name: VTDownloadFact
+              arguments:
+                vt_api_key: your_api_key
+                filehash: hash_to_lookup_and_download_for_analysis
+                enable: False
+    """)
+
+    tf.close()
+    args = args_ex
+    args.backstory_facts_path = tf.name
+
+    gm = GameMaster(options=args)
+    mockBSF.assert_called()
+    os.remove(tf.name)
+    gm.cleanup()
+
+
+def testFileOpenException(monkeypatch):
+    exception_mock = mock.Mock(return_value=Exception)
+    mock1 = mock.Mock()
+    tf = tempfile.NamedTemporaryFile(delete=False)
+    tf.close()
+    args = args_ex
+    args.file = tf.name
+
+    with monkeypatch.context() as m:
+        m.setattr('builtins.open', exception_mock)
+        m.setattr('d20.Manual.GameMaster.LOGGER.exception', mock1)
+        with pytest.raises(SystemExit):
+            GameMaster(options=args)
+        os.remove(tf.name)
