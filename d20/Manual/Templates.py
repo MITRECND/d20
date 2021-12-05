@@ -44,7 +44,7 @@ def registerBackStory(*args,
 
 
 def registerPlayer(*args,
-                   **kwargs: str) -> Callable[..., Type['PlayerTemplate']]:
+                   **kwargs) -> Callable[..., Type['PlayerTemplate']]:
     """A decorator for registering a Player
 
         This decorator expects keyword arguments that match up with the

@@ -50,14 +50,10 @@ class NPCTracker(object):
         self.dHandler: PlayerDirectoryHandler = \
             PlayerDirectoryHandler(id, False)
 
-        try:
-            self.id: int = id
-            self.npc: NPC = npc
-            self.rpcServer: RPCServer = rpcServer
-            self.asyncData: SimpleNamespace = asyncData
-        except KeyError as e:
-            LOGGER.exception("Unable to create NPC Tracker")
-            raise PlayerCreationError(e) from None
+        self.id: int = id
+        self.npc: NPC = npc
+        self.rpcServer: RPCServer = rpcServer
+        self.asyncData: SimpleNamespace = asyncData
 
         for (name, value) in kwargs.items():
             if name == 'memory':
