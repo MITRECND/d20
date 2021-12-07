@@ -165,6 +165,7 @@ class BackStoryCategoryTracker:
         self.category: str = category
         self.backstory_trackers: List['BackStoryTracker'] = list()
 
+        self.stopped = False
         self.backstory_thread: threading.Thread = threading.Thread(
             name='backstoryTracker.%s' % (category),
             target=self.backStoryCategoryThread)
@@ -182,7 +183,7 @@ class BackStoryCategoryTracker:
             self.backstory_trackers, key=lambda i: i.weight)
 
     def backStoryCategoryThread(self) -> None:
-        while 1:
+        while not self.stopped:
             fact: Fact = self.factQueue.get()
             for backstory_tracker in self.backstory_trackers:
                 try:
@@ -229,14 +230,10 @@ class BackStoryTracker:
             PlayerDirectoryHandler(id, False)
         self.__options: Optional[Dict] = None
 
-        try:
-            self.id: int = id
-            self.backstory: BackStory = backstory
-            self.rpcServer: RPCServer = rpcServer
-            self.asyncData = asyncData
-        except KeyError as e:
-            LOGGER.exception("Unable to create BackStory Tracker")
-            raise PlayerCreationError(e) from None
+        self.id: int = id
+        self.backstory: BackStory = backstory
+        self.rpcServer: RPCServer = rpcServer
+        self.asyncData = asyncData
 
         for (name, value) in kwargs.items():
             if name == 'memory':
@@ -251,8 +248,8 @@ class BackStoryTracker:
         self.weight = backstory.registration.default_weight
         if backstory.config is not None:
             config_weight = backstory.config.options.get('weight', None)
-        if config_weight is not None:
-            self.weight = config_weight
+            if config_weight is not None:
+                self.weight = config_weight
 
         self.createBackStory()
 
@@ -286,13 +283,9 @@ class BackStoryTracker:
             tracker=self,
             directoryHandler=self.dHandler,
             config=self.backstory.config.common)
-        try:
-            _inst: BackStoryTemplate = self.backstory.cls(
-                console=console, options=self.options)
-        except Exception as e:
-            LOGGER.exception(
-                "Unable to create BackStory %s ..." % (self.backstory.name))
-            raise PlayerCreationError(e) from None
+
+        _inst: BackStoryTemplate = self.backstory.cls(
+            console=console, options=self.options)
 
         if not isinstance(_inst, BackStoryTemplate):
             LOGGER.error(("BackStory {0} is not using the BackStoryTemplate! "
@@ -319,7 +312,7 @@ class BackStoryTracker:
 
     @staticmethod
     def load(data: Dict, backstory: BackStory, rpcServer: RPCServer,
-             asyncData) -> 'BackStoryTracker':
+             asyncData: SimpleNamespace) -> 'BackStoryTracker':
         if not isinstance(backstory, BackStory):
             raise TypeError("Expected an 'BackStory' type")
 
@@ -370,14 +363,10 @@ class PlayerTracker(object):
 
         self.__options: Optional[Dict] = None
 
-        try:
-            self.id: int = id
-            self.player: Player = player
-            self.rpcServer: RPCServer = rpcServer
-            self.asyncData = asyncData
-        except KeyError as e:
-            LOGGER.exception("Unable to setup Player Tracker")
-            raise PlayerCreationError(e) from None
+        self.id: int = id
+        self.player: Player = player
+        self.rpcServer: RPCServer = rpcServer
+        self.asyncData = asyncData
 
         for (name, value) in kwargs.items():
             if name == 'count':
