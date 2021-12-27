@@ -5,6 +5,7 @@ import os
 import tempfile
 import pytest
 
+from d20.Manual.Exceptions import PlayerCreationError
 from d20.Manual.GameMaster import GameMaster
 from d20.Manual.RPC import (
     Entity,
@@ -15,6 +16,7 @@ from d20.Manual.RPC import (
     RPCStopStreamRequest,
     RPCRequest)
 from d20.Manual.Facts import loadFacts
+from d20.Manual.Templates import registerNPC, NPCTemplate
 
 
 loadFacts()
@@ -334,7 +336,44 @@ class testGameMasterHandlers(unittest.TestCase):
             )
 
 
-def testBackStoryFactLoad2(monkeypatch):
+def testGameMasterInitKwargs(monkeypatch):
+    mock1 = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+
+    args = args_ex
+    args.backstory_facts = "test"
+    gm = GameMaster(extra_players='test',
+                    extra_npcs='test',
+                    extra_backstories='test',
+                    extra_screens='test',
+                    options=args)
+    assert gm.extra_players == 'test'
+    assert gm.extra_npcs == 'test'
+    assert gm.extra_backstories == 'test'
+    assert gm.extra_screens == 'test'
+
+    with pytest.raises(TypeError) as excinfo:
+        gm = GameMaster(test='test')
+    assert str(excinfo.value) == "test is an invalid keyword argument"
+
+    del args.temporary
+    with pytest.raises(RuntimeError) as excinfo:
+        gm = GameMaster(options=args)
+    assert str(excinfo.value) == "Expected temporary directory to be" \
+        " specified in options"
+
+
+def testBackStoryFactLoad1(monkeypatch):
     mockBSF = mock.Mock()
     mock1 = mock.Mock()
 
@@ -423,3 +462,67 @@ def testFileOpenException(monkeypatch):
         with pytest.raises(SystemExit):
             GameMaster(options=args)
         os.remove(tf.name)
+
+
+def testRegisterNPCsError(monkeypatch, caplog):
+    mock1 = mock.Mock()
+    mock_exception = mock.Mock(side_effect=Exception)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.Trackers.PlayerDirectoryHandler",
+                        mock1)
+
+    @registerNPC(
+        name="TestNPC",
+        description="Raises exception on init",
+        creator="",
+        version="0.1",
+        engine_version="0.1"
+    )
+    class RegTestNPC(NPCTemplate):
+        def __init__(self, **kwargs):
+            raise Exception
+
+        def handleData(self, **kwargs):
+            pass
+
+    args = args_ex
+    args.backstory_facts = "test"
+    GameMaster(options=args)
+    assert "Unable to create NPC TestNPC ... skipping" in caplog.text
+
+    monkeypatch.setattr("d20.Manual.Trackers.NPCTracker.createNPC",
+                        mock_exception)
+    GameMaster(options=args)
+    assert "Unexpected issue creating NPC" in caplog.text
+
+
+def testRegisterRegisterBackStories(monkeypatch):
+    mock1 = mock.Mock()
+    mock_backstory = mock.Mock()
+    mock_backstory.name = "test"
+    mock_verifyBackstory = mock.Mock(return_value=[mock_backstory])
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.Trackers.PlayerDirectoryHandler",
+                        mock1)
+    monkeypatch.setattr("d20.BackStories.verifyBackStories",
+                        mock_verifyBackstory)
+
+    args = args_ex
+    args.backstory_facts = "test"
+    save = {'backstories': [{'name': 'test'}]}
+    gm = GameMaster(options=args, save_state=save)
+    gm.registerBackStories(True)
