@@ -270,7 +270,9 @@ def testCreateObjectsList():
     source.Objects = [0]
 
     table = createObjectsList("", gm, source)
-    assert table == 'id | creator |            created             | filename\n===+=========+================================+=========\n0  | tester  | 1970-01-01 00:00:01.000000 UTC | test    '
+    assert table == 'id | creator |            created             | ' \
+        'filename\n===+=========+================================+===' \
+        '======\n0  | tester  | 1970-01-01 00:00:01.000000 UTC | test    '
 
     source2 = mock.Mock()
     source2.Objects = []
@@ -290,7 +292,9 @@ def testCreateFactsList():
     source = mock.Mock()
     source.Facts = [0]
     table = createFactsList("", gm, source)
-    assert table == 'id | type | creator |            created            \n===+======+=========+===============================\n0  | fact | tester  | 1970-01-01 00:00:01.000000 UTC'
+    assert table == 'id | type | creator |            created            \n=' \
+        '==+======+=========+===============================\n0  | fact | ' \
+        'tester  | 1970-01-01 00:00:01.000000 UTC'
 
     source2 = mock.Mock()
     source2.Facts = []
@@ -310,7 +314,9 @@ def testCreateHypsList():
     source = mock.Mock()
     source.Hyps = [0]
     table = createHypsList("", gm, source)
-    assert table == 'id | type | creator |            created            \n===+======+=========+===============================\n0  | hyp  | tester  | 1970-01-01 00:00:01.000000 UTC'
+    assert table == 'id | type | creator |            created            \n=' \
+        '==+======+=========+===============================\n0  | hyp  | ' \
+        'tester  | 1970-01-01 00:00:01.000000 UTC'
 
     source2 = mock.Mock()
     source2.Hyps = []
@@ -527,7 +533,9 @@ def testObjectCmdDoInfo(capsys):
     cmd = ObjectCmd(gm, obj)
     cmd.do_info(None)
     captured = capsys.readouterr()
-    assert captured.out == "\nObject 0:\n--------------\nid      = 0\ncreator = test\ncreated = 1970-01-01 00:00:01.000000 UTC\n--------------\n\n"
+    assert captured.out == "\nObject 0:\n--------------\nid      = 0\n" \
+        "creator = test\ncreated = 1970-01-01 00:00:01.000000 UTC\n---------" \
+        "-----\n\n"
 
 
 def testFactHypBaseCmdInitError(capsys):
