@@ -4,6 +4,7 @@ import argparse
 import os
 import tempfile
 import pytest
+from d20.BackStories import BackStory
 
 from d20.Manual.Exceptions import PlayerCreationError
 from d20.Manual.GameMaster import GameMaster
@@ -16,7 +17,13 @@ from d20.Manual.RPC import (
     RPCStopStreamRequest,
     RPCRequest)
 from d20.Manual.Facts import loadFacts
-from d20.Manual.Templates import registerNPC, NPCTemplate
+from d20.Manual.Templates import (registerNPC,
+                                  NPCTemplate,
+                                  registerBackStory,
+                                  BackStoryTemplate,
+                                  registerPlayer,
+                                  PlayerTemplate)
+from d20.Manual.Trackers import PlayerTracker
 
 
 loadFacts()
@@ -371,6 +378,7 @@ def testGameMasterInitKwargs(monkeypatch):
         gm = GameMaster(options=args)
     assert str(excinfo.value) == "Expected temporary directory to be" \
         " specified in options"
+    args.temporary = '/tmp/d20-test'
 
 
 def testBackStoryFactLoad1(monkeypatch):
@@ -462,6 +470,7 @@ def testFileOpenException(monkeypatch):
         with pytest.raises(SystemExit):
             GameMaster(options=args)
         os.remove(tf.name)
+    del args.file
 
 
 def testRegisterNPCsError(monkeypatch, caplog):
@@ -503,11 +512,8 @@ def testRegisterNPCsError(monkeypatch, caplog):
     assert "Unexpected issue creating NPC" in caplog.text
 
 
-def testRegisterRegisterBackStories(monkeypatch):
+def testRegisterBackStories(monkeypatch, caplog):
     mock1 = mock.Mock()
-    mock_backstory = mock.Mock()
-    mock_backstory.name = "test"
-    mock_verifyBackstory = mock.Mock(return_value=[mock_backstory])
     monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
                         mock1)
     monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
@@ -518,11 +524,104 @@ def testRegisterRegisterBackStories(monkeypatch):
                         mock1)
     monkeypatch.setattr("d20.Manual.Trackers.PlayerDirectoryHandler",
                         mock1)
-    monkeypatch.setattr("d20.BackStories.verifyBackStories",
-                        mock_verifyBackstory)
+    monkeypatch.setattr("d20.Manual.Trackers.BackStoryTracker.load",
+                        mock.Mock(return_value="Success"))
+
+    @registerBackStory(
+        name="TestBackStory",
+        description="Test BackStory",
+        creator="",
+        version="0.1",
+        engine_version="0.1",
+        category="testing"
+    )
+    class TestBackStory(BackStoryTemplate):
+        def __init__(self, **kwargs):
+            raise Exception
+
+        def handleFact(self, **kwargs):
+            pass
 
     args = args_ex
     args.backstory_facts = "test"
-    save = {'backstories': [{'name': 'test'}]}
+    save = {'backstories': [{'name': 'TestBackStory'}]}
     gm = GameMaster(options=args, save_state=save)
     gm.registerBackStories(True)
+    assert gm.backstories == ['Success']
+
+    gm = GameMaster(options=args)
+    assert "Unexpected issue creating BackStory" in caplog.text
+
+
+def testRegisterPlayers(monkeypatch, caplog):
+    mock1 = mock.Mock()
+    mocktracker = mock.Mock(spec=PlayerTracker)
+    mocktracker.name = "TestTracker"
+    mocktracker.id = 1
+    mocktracker.maxTurnTime = None
+    mocktracker.player = mock.Mock()
+    mocktracker.player.registration = mock.Mock()
+    mocktracker.player.registration.factInterests = []
+    mocktracker.player.registration.hypInterests = ["testinterest"]
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.Trackers.PlayerDirectoryHandler",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.Trackers.PlayerTracker.load",
+                        mock.Mock(return_value=mocktracker))
+
+    @registerPlayer(
+        name="TestPlayer",
+        description="Test Player",
+        creator="",
+        version="0.1",
+        engine_version="0.1",
+        interests=['hash']
+    )
+    class TestPlayer(PlayerTemplate):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
+        def handleFact(self, **kwargs):
+            pass
+
+        def handleHyp(self, **kwargs):
+            pass
+
+    args = args_ex
+    args.backstory_facts = "test"
+    save = {'players': [{'name': 'TestPlayer'}]}
+    gm = GameMaster(options=args, save_state=save)
+    gm.registerPlayers(True)
+    assert gm.players[0].name == "TestTracker"
+    assert gm.hyp_interests == {'testinterest': [1]}
+
+
+def testStartGame(monkeypatch):
+    mock1 = mock.Mock()
+    mockengage = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.engageBackStories",
+                        mockengage)
+
+    args = args_ex
+    args.backstory_facts = "test"
+    gm = GameMaster(options=args)
+    gm.startGame()
