@@ -4,9 +4,9 @@ import argparse
 import os
 import tempfile
 import pytest
-from d20.BackStories import BackStory
+import logging
 
-from d20.Manual.Exceptions import PlayerCreationError
+from d20.Manual.Exceptions import ConfigNotFoundError, PlayerCreationError
 from d20.Manual.GameMaster import GameMaster
 from d20.Manual.RPC import (
     Entity,
@@ -22,8 +22,15 @@ from d20.Manual.Templates import (registerNPC,
                                   registerBackStory,
                                   BackStoryTemplate,
                                   registerPlayer,
-                                  PlayerTemplate)
+                                  PlayerTemplate,
+                                  registerScreen,
+                                  ScreenTemplate)
 from d20.Manual.Trackers import PlayerTracker
+from d20.Screens import Screen
+from d20.Manual.Options import Arguments
+from d20.version import GAME_ENGINE_VERSION_RAW
+from d20.Manual.Logger import logging, DEFAULT_LEVEL
+from d20.Manual.Console import PlayerState
 
 
 loadFacts()
@@ -450,10 +457,9 @@ def testBackStoryFactPathLoad2(monkeypatch):
     args = args_ex
     args.backstory_facts_path = tf.name
 
-    gm = GameMaster(options=args)
+    GameMaster(options=args)
     mockBSF.assert_called()
     os.remove(tf.name)
-    gm.cleanup()
 
 
 def testFileOpenException(monkeypatch):
@@ -553,7 +559,7 @@ def testRegisterBackStories(monkeypatch, caplog):
     assert "Unexpected issue creating BackStory" in caplog.text
 
 
-def testRegisterPlayers(monkeypatch, caplog):
+def testRegisterPlayers(monkeypatch):
     mock1 = mock.Mock()
     mocktracker = mock.Mock(spec=PlayerTracker)
     mocktracker.name = "TestTracker"
@@ -604,13 +610,12 @@ def testRegisterPlayers(monkeypatch, caplog):
     assert gm.hyp_interests == {'testinterest': [1]}
 
 
-def testStartGame(monkeypatch):
+def testStartGame(monkeypatch, caplog):
     mock1 = mock.Mock()
     mockengage = mock.Mock()
+    mockexception = mock.Mock(side_effect=Exception)
 
     monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
-                        mock1)
-    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
                         mock1)
     monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
                         mock1)
@@ -618,10 +623,445 @@ def testStartGame(monkeypatch):
                         mock1)
     monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
                         mock1)
-    monkeypatch.setattr("d20.Manual.GameMaster.engageBackStories",
+    monkeypatch.setattr("threading.Thread.start", mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.engageBackStories",
                         mockengage)
+    monkeypatch.setattr("d20.Manual.Trackers.NPCTracker.handleData",
+                        mockexception)
 
     args = args_ex
     args.backstory_facts = "test"
     gm = GameMaster(options=args)
     gm.startGame()
+    mockengage.assert_called()
+    gm.cleanup()
+
+    tf = tempfile.NamedTemporaryFile(delete=False)
+    tf.close()
+    args.file = tf.name
+    gm = GameMaster(options=args)
+    gm.startGame()
+    mockexception.assert_called()
+    assert "Error calling NPC handleData function" in caplog.text
+
+
+def testEngageBackStoryError(monkeypatch, caplog):
+    mock1 = mock.Mock()
+    mock_backstory_facts = mock.Mock(return_value=["test"])
+    mockexception = mock.Mock(side_effect=Exception)
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock_backstory_facts)
+    monkeypatch.setattr(
+        "d20.Manual.Trackers.BackStoryCategoryTracker.handleFact",
+        mockexception)
+
+    @registerBackStory(
+        name="TestBackStory",
+        description="Test BackStory",
+        creator="",
+        version="0.1",
+        engine_version="0.1",
+        category="testing"
+    )
+    class TestBackStory(BackStoryTemplate):
+        def __init__(self, **kwargs):
+            raise Exception
+
+        def handleFact(self, **kwargs):
+            pass
+
+    args = args_ex
+    args.file = None
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+    gm.engageBackStories()
+    assert "Error calling BackStory handleFact function" in caplog.text
+
+
+def testParseScreenOptions(monkeypatch):
+    mock1 = mock.Mock()
+    mockScreen = mock.Mock(spec=Screen)
+    mockScreen.config = None
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+    with pytest.raises(ConfigNotFoundError):
+        gm._parse_screen_options(mockScreen)
+
+    mockScreen.config = mock.Mock()
+    mockScreen.registration = mock.Mock()
+    mockScreen.registration.options = mock.Mock()
+    mockScreen.registration.options.parse = mock.Mock(return_value="test")
+    gm = GameMaster(options=args)
+    assert gm._parse_screen_options(mockScreen) == "test"
+
+
+def testProvideData(monkeypatch):
+    mock1 = mock.Mock()
+    mockParseScreen = mock.Mock(return_value={})
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr(
+        "d20.Manual.GameMaster.GameMaster._parse_screen_options",
+        mockParseScreen)
+
+    @registerScreen(
+        name="TestScreen",
+        version="0.1",
+        engine_version="0.1",
+        options=Arguments(("test", {}))
+    )
+    class TestScreen(ScreenTemplate):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
+        def filter(self):
+            return "test filter"
+
+        def present(self):
+            return "test present"
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+
+    with pytest.raises(ValueError) as excinfo:
+        gm.provideData("Nonexist Filter")
+    assert str(excinfo.value) == "No screen by that name"
+
+    assert gm.provideData("TestScreen") == "test filter"
+    assert gm.provideData("TestScreen", True) == "test present"
+
+
+def testSave(monkeypatch):
+    mock1 = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+    gm.objects = []
+    save_dict = {'players': [],
+                 'npcs': [],
+                 'objects': [],
+                 'facts': {'ids': 0, 'columns': {}},
+                 'hyps': {'ids': 0, 'columns': {}},
+                 'engine': GAME_ENGINE_VERSION_RAW,
+                 'temp_base': '/tmp/d20-test',
+                 'backstories': []}
+    assert gm.save() == save_dict
+
+
+def testGetEntityName(monkeypatch):
+    mock1 = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+    mockEntity = mock.Mock()
+    mockEntity.isPlayer = False
+    mockEntity.isNPC = False
+    mockEntity.isBackStory = False
+    mockPlayer = mock.Mock()
+    mockPlayer.name = "testplayer"
+    gm.players = [mockPlayer]
+    mockNPC = mock.Mock()
+    mockNPC.name = "testnpc"
+    gm.npcs = [mockNPC]
+    mockBS = mock.Mock()
+    mockBS.name = "testbackstory"
+    gm.backstories = [mockBS]
+
+    mockEntity.id = 0
+    assert gm.getEntityName(mockEntity) == "Unknown!"
+
+    mockEntity.isBackStory = True
+    assert gm.getEntityName(mockEntity) == "testbackstory"
+
+    mockEntity.isNPC = True
+    assert gm.getEntityName(mockEntity) == "testnpc"
+
+    mockEntity.isPlayer = True
+    assert gm.getEntityName(mockEntity) == "testplayer"
+
+
+def testAstopError(monkeypatch):
+    mock1 = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.stop", mock1)
+    monkeypatch.setattr("asyncio.new_event_loop",
+                        mock.Mock(side_effect=Exception))
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+
+    with pytest.raises(Exception) as exc_info:
+        gm.astop()
+        assert str(exc_info.value) == "Exception trying to cleanup event loop"
+
+
+def testStopError(monkeypatch):
+    mock1 = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.RPC.RPCServer.stop",
+                        mock.Mock(side_effect=Exception))
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+
+    with pytest.raises(Exception) as exc_info:
+        gm.stop()
+        assert str(exc_info.value) == "Exception trying to stop GM"
+
+
+def testRunGame(monkeypatch):
+    mock1 = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster._reportRuntime",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.RPC.RPCServer.stop",
+                        mock.Mock(side_effect=Exception))
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+
+    gm.runGame()
+    assert not gm.gameRunning
+
+
+def testReportRuntime(monkeypatch, caplog):
+    mock1 = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+
+    logger = logging.getLogger()
+    logger.setLevel(DEFAULT_LEVEL)
+    monkeypatch.setattr("d20.Manual.GameMaster.LOGGER", logger)
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+
+    mocknpc = mock.Mock()
+    mocknpc.runtime = 1
+    mocknpc.name = "testnpc"
+    gm.npcs = [mocknpc]
+    mockplayer = mock.Mock()
+    mockplayer.runtime = 2
+    mockplayer.name = "testplayer"
+    gm.players = [mockplayer]
+
+    gm._reportRuntime()
+    return_text = "INFO     root:GameMaster.py:598 NPC    'testnpc   ' - " \
+        "runtime  1.0000s\nINFO     root:GameMaster.py:604 Player " \
+        "'testplayer' - runtime  2.0000s\n"
+    assert caplog.text == return_text
+
+
+def testCheckGameState(monkeypatch):
+    mock1 = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+
+    gm._maxGameTime = 1
+    gm._gameStartTime = 1
+    assert gm.checkGameState(0)
+    gm._maxGameTime = 0
+
+    mockRunningComponent = mock.Mock()
+    mockRunningComponent.state = PlayerState.running
+    gm.backstory_categories = {'test': mockRunningComponent}
+    assert not gm.checkGameState(0)
+    gm.backstory_categories = {}
+
+    gm.players = [mockRunningComponent]
+    assert not gm.checkGameState(0)
+    mockWaitingPlayer = mock.Mock()
+    mockWaitingPlayer.state = PlayerState.waiting
+    gm.players = [mockWaitingPlayer]
+    assert gm.checkGameState(0)
+    gm.players = []
+
+    gm.npcs = [mockRunningComponent]
+    assert not gm.checkGameState(0)
+    gm.npcs = []
+
+    gm._idleTicks = 0
+    assert gm.checkGameState(0)
+
+    gm._idleTicks = gm._idleCount + 1
+    assert not gm.checkGameState(0)
+
+
+def testHandlePrint(monkeypatch, caplog):
+    mock1 = mock.Mock()
+    mockEntityName = mock.Mock(return_value="testName")
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.getEntityName",
+                        mockEntityName)
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+
+    mockRPC = mock.Mock(spec=RPCRequest)
+    mockRPC.entity = 'test'
+    mockRPC.args = argparse.Namespace()
+    mockErrorRsp = mock.Mock()
+    monkeypatch.setattr("d20.Manual.RPC.RPCServer.sendErrorResponse",
+                        mockErrorRsp)
+
+    gm.handlePrint(mockRPC)
+    mockErrorRsp.assert_called_with(mockRPC,
+                                    reason="Missing required field in args")
+
+    mockRPC.args.kwargs = None
+    gm.handlePrint(mockRPC)
+    mockErrorRsp.assert_called_with(mockRPC,
+                                    reason="Missing required field in args")
+
+    mockRPC.args.kwargs = {'wrongarg': 'test'}
+    mockRPC.args.args = ['foo']
+    gm.handlePrint(mockRPC)
+    mockErrorRsp.assert_called_with(mockRPC,
+                                    reason="Unexpected field in kwargs")
+
+    class Foo(object):
+        def __str__(self):
+            raise Exception
+    mockRPC.args.kwargs = {'sep': 'test'}
+    mockRPC.args.args = [Foo()]
+    gm.handlePrint(mockRPC)
+    mockErrorRsp.assert_called_with(mockRPC,
+                                    reason="Unable to convert "
+                                    "contents to string")
+
+    mockRPC.args.args = [Foo(), 'foo']
+    gm.handlePrint(mockRPC)
+    mockErrorRsp.assert_called_with(mockRPC,
+                                    reason="Unable to convert "
+                                    "arguments to string")
+
+    logger = logging.getLogger()
+    logger.setLevel(DEFAULT_LEVEL)
+    monkeypatch.setattr("d20.Manual.GameMaster.LOGGER", logger)
+    mockRPC.args.args = ['test1']
+    gm.handlePrint(mockRPC)
+    assert "testName: test1" in caplog.text
+
+    mockRPC.args = None
+    gm.handlePrint(mockRPC)
+    mockErrorRsp.assert_called_with(mockRPC,
+                                    reason="args field formatted incorrectly")
