@@ -295,7 +295,7 @@ class BaseCmd(cmd.Cmd):
             if isinstance(item, FileObject):
                 t = 'object'
             elif isinstance(item, Fact):
-                if Fact.tainted:
+                if item.tainted:
                     t = 'hyp'
                 else:
                     t = 'fact'
