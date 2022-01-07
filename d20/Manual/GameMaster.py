@@ -1018,13 +1018,17 @@ class GameMaster(object):
                 msg.entity.isPlayer
                 msg.entity.id
                 object_id = msg.args.object_id
+            else:
+                self.rpc.sendErrorResponse(
+                    msg, reason="args field formatted incorrectly")
+                return
         except AttributeError as e:
             self.rpc.sendErrorResponse(msg, reason=str(e))
             return
 
         try:
             FileObj: FileObject = self.objects[object_id]
-        except KeyError:
+        except IndexError:
             self.rpc.sendErrorResponse(msg, reason="No object by that id")
             return
 
