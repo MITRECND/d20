@@ -538,6 +538,43 @@ def testObjectCmdDoInfo(capsys):
         "-----\n\n"
 
 
+def testObjectCmdDoItems(monkeypatch, capsys):
+    data = mock.Mock()
+    children = mock.Mock()
+    gm = mock.Mock()
+    obj = mock.Mock()
+    obj._created_ = 1
+    obj.id = 0
+    obj._creator_ = "test"
+    cmd = ObjectCmd(gm, obj)
+
+    mock1 = mock.Mock(return_value=["foo"])
+    monkeypatch.setattr("d20.Manual.Shell.ObjectCmd._find_items", mock1)
+    mockTable = mock.Mock(return_value="testing")
+    monkeypatch.setattr("d20.Manual.Shell.prettyTable", mockTable)
+    cmd._do_items("test", data, children)
+    captured = capsys.readouterr()
+    assert captured.out == "\ntesting\n"
+
+    mock1 = mock.Mock(return_value=[])
+    monkeypatch.setattr("d20.Manual.Shell.ObjectCmd._find_items", mock1)
+    cmd._do_items("test", data, children)
+    captured = capsys.readouterr()
+    assert captured.out == "No test associated with object\n"
+
+
+def testFactHypBaseCmdWriteList(capsys):
+    item = mock.Mock()
+    item.id = 1
+    gm = mock.Mock()
+    cmd = FactHypBaseCmd("test", gm, item)
+
+    cmd.write_list("testing")
+    captured = capsys.readouterr()
+    assert captured.out == "\nTest 1:\n--------------\ntesting" \
+                           "--------------\n\n"
+
+
 def testFactHypBaseCmdInitError(capsys):
     item = mock.Mock()
     item.id = None

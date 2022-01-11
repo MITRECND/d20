@@ -4,9 +4,10 @@ import argparse
 import os
 import tempfile
 import pytest
-import logging
 
-from d20.Manual.Exceptions import ConfigNotFoundError, PlayerCreationError
+from d20.Manual.Exceptions import (ConfigNotFoundError,
+                                   PlayerCreationError,
+                                   TemporaryDirectoryError)
 from d20.Manual.GameMaster import GameMaster
 from d20.Manual.RPC import (
     Entity,
@@ -885,6 +886,32 @@ def testStopError(monkeypatch):
         assert str(exc_info.value) == "Exception trying to stop GM"
 
 
+def testCleanupError(monkeypatch):
+    mock1 = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.Temporary.TemporaryHandler.cleanup",
+                        mock.Mock(side_effect=TemporaryDirectoryError))
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+    gm.options = mock.Mock()
+    gm.options.save_file = None
+
+    with pytest.raises(TemporaryDirectoryError):
+        gm.cleanup()
+
+
 def testRunGame(monkeypatch):
     mock1 = mock.Mock()
 
@@ -1540,6 +1567,81 @@ def testHandlePromote(monkeypatch):
                                     reason="Unable to promote hyp to fact")
 
 
+def testhandleAddObject(monkeypatch, caplog):
+    mock1 = mock.Mock()
+    mockErrorRsp = mock.Mock()
+    mockOK = mock.Mock()
+    mockTrue = mock.Mock(return_value=True)
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster."
+                        "_checkObjectStreamerConditions",
+                        mockTrue)
+    monkeypatch.setattr("d20.Manual.BattleMap.FactTable.findById",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.RPC.RPCServer.sendErrorResponse",
+                        mockErrorRsp)
+    monkeypatch.setattr("d20.Manual.RPC.RPCServer.sendOKResponse", mockOK)
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+
+    mockMsg = mock.Mock(spec=RPCServer)
+    mockMsg.args = argparse.Namespace()
+    gm.handleAddObject(mockMsg)
+    mockErrorRsp.assert_called_with(mockMsg,
+                                    reason="'Namespace' object has no"
+                                           " attribute 'object_data'")
+
+    mockMsg.args.object_data = 'foo'
+    mockMsg.args.creator = 'foo'
+    mockMsg.args.parentObjects = [0]
+    mockMsg.args.parentFacts = [0]
+    mockMsg.args.parentHyps = [0]
+    mockMsg.args.metadata = {'foo': 'foo'}
+    mockMsg.args.encoding = 'utf-8'
+    gm.handleAddObject(mockMsg)
+    mockOK.assert_called_with(mockMsg, result={'object_id': 0})
+
+    mockMsg.args.parentObjects = []
+    mockMsg.args.parentFacts = []
+    mockMsg.args.parentHyps = []
+    mockObj = mock.Mock()
+    mockObj.id = 0
+    mockAddObj = mock.Mock(return_value=mockObj)
+    monkeypatch.setattr("d20.Manual.BattleMap.ObjectList.addObject",
+                        mockAddObj)
+    mockStreamMsg = mock.Mock()
+    gm.objectStreamList = [mockStreamMsg]
+    gm.handleAddObject(mockMsg)
+    mockOK.assert_called_with(mockStreamMsg, result={'object': mockObj})
+
+    mockNpc = mock.Mock()
+    mockNpc.name = "test"
+    mockNpc.handleData = mock.Mock(side_effect=Exception)
+    gm.npcs = [mockNpc]
+    gm.handleAddObject(mockMsg)
+    assert "Error calling NPC handleData function" in caplog.text
+
+    gm.objectStreamList = []
+    mockAddObj = mock.Mock(return_value=None)
+    monkeypatch.setattr("d20.Manual.BattleMap.ObjectList.addObject",
+                        mockAddObj)
+    gm.handleAddObject(mockMsg)
+    mockErrorRsp.assert_called_with(mockMsg,
+                                    reason="Fileobject not found")
+
+
 def testHandleGetObject(monkeypatch):
     mock1 = mock.Mock()
     mockErrorRsp = mock.Mock()
@@ -1588,6 +1690,38 @@ def testHandleGetObject(monkeypatch):
     gm.objects = [mockObj]
     gm.handleGetObject(mockMsg)
     mockOK.assert_called_with(mockMsg, result={'object': mockObj})
+
+
+def testHandleGetAllObjects(monkeypatch):
+    mock1 = mock.Mock()
+    mockOK = mock.Mock()
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.RPC.RPCServer.sendOKResponse", mockOK)
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+    mockMsg = mock.Mock(spec=RPCServer)
+    object_data = 'foo'
+    objdict = {'creator': 'foo',
+               'parentObjects': [0],
+               'parentFacts': [0],
+               'parentHyps': [0],
+               'metadata': {'foo': 'foo'},
+               'encoding': 'utf-8'}
+    gm.objects.addObject(object_data, kwargs=objdict)
+    gm.handleGetAllObjects(mockMsg)
+    mockOK.assert_called()
 
 
 def testHandleGetFact(monkeypatch):
@@ -1796,9 +1930,7 @@ def testHandleWaitTillFact(monkeypatch):
                         mock1)
     monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
                         mock1)
-    # monkeypatch.setattr("d20.Manual.BattleMap.RegisteredFacts",
-    #                     {"test"})
-    monkeypatch.setattr("d20.Manual.RPC.RPCServer.sendResponse", mockRsp)    
+    monkeypatch.setattr("d20.Manual.RPC.RPCServer.sendResponse", mockRsp)
     monkeypatch.setattr("d20.Manual.BattleMap.FactTable.getColumn",
                         mock.Mock(return_value=[mockFact, mockFact2]))
 
@@ -1816,3 +1948,42 @@ def testHandleWaitTillFact(monkeypatch):
     assert gm.handleWaitTillFact(mockMsg) is None
     mockRsp.assert_called_with(mockMsg, RPCResponseStatus.ok,
                                result={'fact': mockFact2})
+
+
+def testStreamHandleChildFactStreamStart(monkeypatch):
+    mock1 = mock.Mock()
+    mockRsp = mock.Mock()
+    mockFact = mock.Mock()
+    mockFact.parentObjects = []
+    mockFact.parentFacts = []
+    mockFact.parentHyps = []
+
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerPlayers",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerScreens",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerNPCs",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.GameMaster.registerBackStories",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
+                        mock1)
+    monkeypatch.setattr("d20.Manual.RPC.RPCServer.sendResponse", mockRsp)
+    monkeypatch.setattr("d20.Manual.BattleMap.FactTable.getColumn",
+                        mock.Mock(return_value=[mockFact]))
+
+    args = args_ex
+    args.backstory_facts = "TestBackStory"
+    gm = GameMaster(options=args)
+    mockMsg = mock.Mock()
+    mockMsg.stream = mock.Mock()
+    mockMsg.stream.args = argparse.Namespace()
+    mockMsg.stream.args.fact_id = 0
+    mockMsg.stream.args.object_id = 0
+    mockMsg.stream.args.hyp_id = 0
+    mockMsg.stream.args.fact_types = ['foo']
+    mockMsg.stream.args.only_latest = False
+    gm.streamHandleFactStreamStart(mockMsg)
+    mockRsp.assert_called_with(mockMsg,
+                               RPCResponseStatus.ok,
+                               result={'fact': mockFact})
