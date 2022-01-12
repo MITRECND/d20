@@ -1,9 +1,9 @@
 import os
 import time
 import inspect
-
 from collections.abc import Iterable
 from collections import OrderedDict
+from typing import Callable, List, Dict, Optional, Set, Union, Tuple, Type
 
 from inspect import (Parameter,
                      Signature)
@@ -11,8 +11,6 @@ from .Fields import FactField
 
 from d20.Manual.Logger import logging, Logger
 from d20.Manual.Utils import loadExtras
-
-from typing import Callable, List, Dict, Optional, Set, Union, Tuple, Type
 
 
 LOGGER: Logger = logging.getLogger(__name__)

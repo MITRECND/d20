@@ -1,11 +1,9 @@
-from cerberus.validator import Validator
-import yaml
-import cerberus
 import argparse
+import cerberus
+import yaml
+from typing import Dict
 
 from d20.Manual.Logger import logging, Logger
-
-from typing import Dict
 
 
 LOGGER: Logger = logging.getLogger(__name__)
@@ -156,7 +154,7 @@ class Configuration:
         # Check types of d20 sections and inject into
         # args if applicable
         if 'd20' in self._config_:
-            d20_validator: Validator = cerberus.Validator(d20_schema)
+            d20_validator: cerberus.Validator = cerberus.Validator(d20_schema)
             valid: bool = d20_validator.validate(self._config_['d20'])
             if not valid:
                 raise ValueError(

@@ -3,6 +3,7 @@ import threading
 import queue
 from enum import Enum
 from types import SimpleNamespace
+from typing import List, Dict, Optional
 
 from d20.Manual.Exceptions import PlayerCreationError
 from d20.Manual.Logger import logging, Logger
@@ -20,8 +21,6 @@ from d20.BackStories import BackStory
 from d20.Manual.RPC import EntityType, RPCClient, RPCServer
 from d20.Manual.BattleMap import FileObject
 from d20.Manual.Facts import Fact
-
-from typing import List, Dict, Optional
 
 
 LOGGER: Logger = logging.getLogger(__name__)

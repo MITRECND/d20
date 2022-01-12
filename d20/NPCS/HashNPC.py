@@ -1,14 +1,14 @@
+from typing import Union
+
+import hashlib
+import ssdeep
+
 from d20.Manual.BattleMap import FileObject
 from d20.Manual.Templates import (NPCTemplate,
                                   registerNPC)
 from d20.Manual.Facts import (MD5HashFact, SHA1HashFact,  # type: ignore
                               SHA256HashFact, SSDeepHashFact,  # type: ignore
                               Fact)
-
-import hashlib
-import ssdeep
-
-from typing import Union
 
 
 # Process basic information to initially populate fact table

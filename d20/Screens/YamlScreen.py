@@ -1,12 +1,11 @@
-from d20.Manual.Templates import (ScreenTemplate,
-                                  registerScreen)
-from d20.Manual.Logger import logging, Logger
-
 import yaml
 import binascii
 from collections import OrderedDict
-
 from typing import List, Dict, Optional, Union
+
+from d20.Manual.Templates import (ScreenTemplate,
+                                  registerScreen)
+from d20.Manual.Logger import logging, Logger
 
 
 LOGGER: Logger = logging.getLogger(__name__)

@@ -1,13 +1,14 @@
 import time
-from enum import Enum
 from collections.abc import Iterable
+from enum import Enum
 from types import SimpleNamespace
+from typing import List, Dict, Optional, Collection, Union, Tuple, Generator
 
-from requests.packages.urllib3.util import Retry
-from requests.adapters import HTTPAdapter
 from requests import Session
-from d20.Manual.BattleMap import FileObject
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util import Retry
 
+from d20.Manual.BattleMap import FileObject
 from d20.Manual.Logger import logging, Logger
 from d20.Manual.Exceptions import (ConsoleError, RPCTimeoutError,
                                    WaitTimeoutError)
@@ -17,8 +18,6 @@ from d20.Manual.RPC import (RPCClient, RPCResponseStatus,
                             RPCStreamCommands)
 from d20.Manual.Temporary import PlayerDirectoryHandler
 import d20.Manual.Trackers as Tracker
-
-from typing import List, Dict, Optional, Collection, Union, Tuple, Generator
 
 
 LOGGER: Logger = logging.getLogger(__name__)

@@ -1,11 +1,13 @@
-from argparse import Namespace
-from asyncio.events import AbstractEventLoop
 import sys
 import time
 import threading
 import asyncio
 import yaml
+from argparse import Namespace
+from asyncio.events import AbstractEventLoop
 from types import SimpleNamespace
+from typing import List, Dict, Tuple, Optional, Union
+
 
 from d20.version import (
     GAME_ENGINE_VERSION_RAW,
@@ -41,7 +43,6 @@ from d20.BackStories import (
     resolveBackStoryFacts)
 from d20.Screens import Screen, verifyScreens
 
-from typing import List, Dict, Tuple, Optional, Union
 
 LOGGER: Logger = logging.getLogger(__name__)
 

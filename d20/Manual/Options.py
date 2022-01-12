@@ -1,9 +1,8 @@
 import datetime
 import cerberus
+from typing import Optional, Type, Tuple, Dict, Union
 
 from d20.Manual.Logger import logging, Logger
-
-from typing import Optional, Type, Tuple, Dict, Union
 
 
 LOGGER: Logger = logging.getLogger(__name__)
