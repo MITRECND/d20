@@ -61,7 +61,7 @@ def resolveFacts(*args) -> List[str]:
     resolved: List[str] = []
     for fact in facts:
         if fact in RegisteredFactGroups.keys():
-            resolved.extend(list(RegisteredFactGroups[fact]))
+            resolved.extend(RegisteredFactGroups[fact])
         elif fact in RegisteredFacts:
             resolved.append(fact)
         else:
