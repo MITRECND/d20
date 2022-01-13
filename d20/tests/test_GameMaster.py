@@ -93,16 +93,6 @@ class testGameMaster(unittest.TestCase):
 
         gm.cleanup()
 
-    # def testLoad(self):
-    #     gm = GameMaster(options=self.args)
-    #     mock_npc = mock.MagicMock()
-    #     mock_npc.name = "HashNPC"
-    #     save_state = {
-    #             "npcs": [mock_npc]
-    #         }
-    #     gm.save_state = save_state
-    #     gm.registerNPCs(True)
-
 
 class testGameMasterHandlers(unittest.TestCase):
     def setUp(self):
