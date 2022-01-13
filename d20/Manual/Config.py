@@ -1,8 +1,12 @@
-import yaml
+import argparse
 import cerberus
-from d20.Manual.Logger import logging
+import yaml
+from typing import Dict
 
-LOGGER = logging.getLogger(__name__)
+from d20.Manual.Logger import logging, Logger
+
+
+LOGGER: Logger = logging.getLogger(__name__)
 
 
 d20_schema = {
@@ -61,7 +65,7 @@ common_schema = {
 
 }
 
-d20_config_example = """
+d20_config_example: str = """
 d20:
 #     Path to extra players
 #     extra-players:  # string or list
@@ -84,13 +88,13 @@ d20:
 
 
 class EntityConfiguration:
-    def __init__(self, myconfig, common):
+    def __init__(self, myconfig: Dict, common: Dict) -> None:
         if not isinstance(myconfig, dict):
             raise TypeError("Expected 'myconfig' to be a dict")
         if not isinstance(common, dict):
             raise TypeError("Expected 'common' to be a dict")
-        self.options = myconfig
-        self.common = common
+        self.options: Dict = myconfig
+        self.common: Dict = common
 
 
 class Configuration:
@@ -102,8 +106,9 @@ class Configuration:
         instance (assumed to be a Namespace instance) and injects/augments
         certain fields
     """
-    def __init__(self, configFile=None, config=None, args=None):
-        self._config_ = dict()
+    def __init__(self, configFile: str = None, config: Dict = None,
+                 args: argparse.Namespace = None) -> None:
+        self._config_: Dict = dict()
 
         if configFile is not None:
             try:
@@ -149,8 +154,8 @@ class Configuration:
         # Check types of d20 sections and inject into
         # args if applicable
         if 'd20' in self._config_:
-            d20_validator = cerberus.Validator(d20_schema)
-            valid = d20_validator.validate(self._config_['d20'])
+            d20_validator: cerberus.Validator = cerberus.Validator(d20_schema)
+            valid: bool = d20_validator.validate(self._config_['d20'])
             if not valid:
                 raise ValueError(
                     "Unable to verify d20 config: %s"
@@ -173,49 +178,49 @@ class Configuration:
                         setattr(args, key, value)
 
     @property
-    def players(self):
+    def players(self) -> Dict:
         return self._config_.get('Players', dict())
 
-    def playerConfig(self, playerName):
+    def playerConfig(self, playerName: str) -> EntityConfiguration:
         config = self.players.get(playerName, dict())
         return EntityConfiguration(config, self.common)
 
     @property
-    def npcs(self):
+    def npcs(self) -> Dict:
         return self._config_.get('NPCS', dict())
 
-    def npcConfig(self, NPCName):
+    def npcConfig(self, NPCName: str) -> EntityConfiguration:
         config = self.npcs.get(NPCName, dict())
         return EntityConfiguration(config, self.common)
 
     @property
-    def backStories(self):
+    def backStories(self) -> Dict:
         return self._config_.get('BackStories', dict())
 
-    def backStoryConfig(self, BackStoryName):
+    def backStoryConfig(self, BackStoryName: str) -> EntityConfiguration:
         config = self.backStories.get(BackStoryName, dict())
         return EntityConfiguration(config, self.common)
 
     @property
-    def screens(self):
+    def screens(self) -> Dict:
         return self._config_.get('Screens', dict())
 
-    def screenConfig(self, screenName):
+    def screenConfig(self, screenName: str) -> EntityConfiguration:
         config = self.screens.get(screenName, dict())
         return EntityConfiguration(config, self.common)
 
     @property
-    def actions(self):
+    def actions(self) -> Dict:
         return self._config_.get('Actions', dict())
 
-    def actionConfig(self, actionName):
+    def actionConfig(self, actionName: str) -> EntityConfiguration:
         config = self.actions.get(actionName, dict())
         return EntityConfiguration(config, self.common)
 
     @property
-    def d20(self):
+    def d20(self) -> Dict:
         return self._config_.get('d20', dict())
 
     @property
-    def common(self):
+    def common(self) -> Dict:
         return self._config_.get('common', dict())

@@ -3,15 +3,20 @@ import time
 import threading
 import asyncio
 import yaml
+from argparse import Namespace
+from asyncio.events import AbstractEventLoop
+from types import SimpleNamespace
+from typing import List, Dict, Tuple, Optional, Union
+
 
 from d20.version import (
     GAME_ENGINE_VERSION_RAW,
     GAME_ENGINE_VERSION,
     parseVersion)
-from d20.Manual.Exceptions import (PlayerCreationError,
+from d20.Manual.Exceptions import (ConfigNotFoundError, PlayerCreationError,
                                    DuplicateObjectError,
                                    TemporaryDirectoryError)
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 from d20.Manual.Trackers import (NPCTracker,
                                  PlayerTracker,
                                  BackStoryTracker,
@@ -19,22 +24,27 @@ from d20.Manual.Trackers import (NPCTracker,
 from d20.Manual.BattleMap import (FactTable,
                                   HypothesisTable,
                                   ObjectList,
-                                  FileObject)
-from d20.Manual.RPC import (RPCServer,
+                                  FileObject, TableColumn)
+from d20.Manual.RPC import (RPCRequest, RPCServer,
                             RPCResponseStatus,
-                            RPCCommands,
-                            RPCStreamCommands)
+                            RPCCommands, RPCStartStreamRequest,
+                            RPCStopStreamRequest,
+                            RPCStreamCommands,
+                            Entity)
 from d20.Manual.Temporary import TemporaryHandler
 from d20.Manual.Console import (PlayerState)
 from d20.Manual.Config import Configuration
-from d20.Players import verifyPlayers
-from d20.NPCS import verifyNPCs
+from d20.Manual.Facts import Fact
+from d20.Players import Player, verifyPlayers
+from d20.NPCS import NPC, verifyNPCs
 from d20.BackStories import (
+    BackStory,
     verifyBackStories,
     resolveBackStoryFacts)
-from d20.Screens import verifyScreens
+from d20.Screens import Screen, verifyScreens
 
-LOGGER = logging.getLogger(__name__)
+
+LOGGER: Logger = logging.getLogger(__name__)
 
 
 class GameMaster(object):
@@ -53,45 +63,47 @@ class GameMaster(object):
             options: A Namespace object (basically args)
             save_state: A dict of saved state information from a previous run
     """
-    def __init__(self, **kwargs):
-        self.backstory_facts = list()
-        self.gameThread = None
-        self.objects = ObjectList()
-        self.facts = FactTable()
-        self.hyps = HypothesisTable()
-        self.players = list()
-        self.npcs = list()
-        self.backstories = list()
-        self.backstory_categories = dict()
-        self.fact_interests = dict()
-        self.hyp_interests = dict()
-        self.screens = dict()
-        self.newGamePlus = False
-        self.gameRunning = False
-        self._gameStartTime = 0
-        self._idleCount = 0
-        self._idleTicks = 100  # 'ticks' i.e., primarly loop cycles
+    def __init__(self, **kwargs) -> None:
+        self.backstory_facts: List[Fact] = list()
+        self.gameThread: Optional[threading.Thread] = None
+        self.objects: ObjectList = ObjectList()
+        self.facts: FactTable = FactTable()
+        self.hyps: HypothesisTable = HypothesisTable()
+        self.players: List[PlayerTracker] = list()
+        self.npcs: List[NPCTracker] = list()
+        self.backstories: List[BackStoryTracker] = list()
+        self.backstory_categories: Dict[str, BackStoryCategoryTracker] = dict()
+        self.fact_interests: Dict = dict()
+        self.hyp_interests: Dict = dict()
+        self.screens: Dict[str, Screen] = dict()
+        self.newGamePlus: bool = False
+        self.gameRunning: bool = False
+        self._gameStartTime: float = 0
+        self._idleCount: int = 0
+        self._idleTicks: int = 100  # 'ticks' i.e., primarly loop cycles
 
-        self.factWaitList = list()
-        self.factStreamList = dict()
-        self.hypStreamList = dict()
-        self.objectStreamList = list()
+        self.factWaitList: List[Tuple[List[str], RPCRequest]] = list()
+        self.factStreamList: Dict[str, List] = dict()
+        self.hypStreamList: Dict[str, List] = dict()
+        self.objectStreamList: List = list()
 
-        self.rpc = RPCServer()
+        self.rpc: RPCServer = RPCServer()
         self.registerHandlers()
 
-        self.extra_players = []
-        self.extra_npcs = []
-        self.extra_backstories = []
-        self.extra_screens = []
-        self.Config = Configuration()
-        self.options = None
-        self.save_state = None
-        self.asyncData = type(
-            'asyncData', (), {'enabled': False,
-                              'eventloop': None,
-                              'eventwatcher': None})
-        self.tempHandler = None
+        self.extra_players: List[str] = []
+        self.extra_npcs: List[str] = []
+        self.extra_backstories: List[str] = []
+        self.extra_screens: List[str] = []
+        self.Config: Configuration = Configuration()
+        self.options: Optional[Namespace] = None
+        self.save_state: Optional[Dict] = None
+        self.asyncData: SimpleNamespace = SimpleNamespace(
+            enabled=False,
+            eventloop=None,
+            eventwatcher=None
+        )
+
+        self.tempHandler: Optional[TemporaryHandler] = None
 
         for (name, value) in kwargs.items():
             if name == 'extra_players':
@@ -111,29 +123,24 @@ class GameMaster(object):
             else:
                 raise TypeError("%s is an invalid keyword argument" % (name))
 
-        if self.save_state is None and self.options is None:
-            raise TypeError(("Either Save State or "
-                             "options must be specified"))
+        # Idle Wait Default: 1 second
+        self._idleWait: int = self.Config.d20.get('graceTime', 1)
 
-        if self.save_state is None:
+        # Max Game Time Default unlimited (0 value)
+        self._maxGameTime: int = self.Config.d20.get('maxGameTime', 0)
+
+        # Max turn Time for each Player Default unlimited (0 value)
+        self._maxTurnTime: int = self.Config.d20.get('maxTurnTime', 0)
+
+        if self.save_state is not None:
+            self.newGamePlus = True
+        elif self.options is not None:
             if 'temporary' not in self.options:
                 raise RuntimeError(
                     "Expected temporary directory to be specified in options")
 
             self.tempHandler = TemporaryHandler(self.options.temporary)
 
-        # Idle Wait Default: 1 second
-        self._idleWait = self.Config.d20.get('graceTime', 1)
-
-        # Max Game Time Default unlimited (0 value)
-        self._maxGameTime = self.Config.d20.get('maxGameTime', 0)
-
-        # Max turn Time for each Player Default unlimited (0 value)
-        self._maxTurnTime = self.Config.d20.get('maxTurnTime', 0)
-
-        if self.save_state is not None:
-            self.newGamePlus = True
-        else:
             for inp in ['file', 'backstory_facts', 'backstory_facts_path']:
                 if inp not in self.options:
                     setattr(self.options, inp, None)
@@ -168,19 +175,22 @@ class GameMaster(object):
                     _creator_="GameMaster",
                     metadata={'filename': self.options.file})
             elif self.options.backstory_facts is not None:
-                backstory_facts = yaml.load(
+                backstory_facts: Dict = yaml.load(
                     self.options.backstory_facts, Loader=yaml.FullLoader)
                 self.backstory_facts = resolveBackStoryFacts(backstory_facts)
             else:
-                with open(self.options.backstory_facts_path, 'r') as f:
+                with open(self.options.backstory_facts_path, 'rb') as f:
                     backstory_facts = yaml.load(
                         f.read(), Loader=yaml.FullLoader)
                 self.backstory_facts = resolveBackStoryFacts(backstory_facts)
+        else:
+            raise TypeError(("Either Save State or "
+                             "options must be specified"))
 
         # Unconditionally load screens
         self.registerScreens()
 
-    def registerHandlers(self):
+    def registerHandlers(self) -> None:
         self.rpc.registerIdleFunction(self.checkGameState)
 
         self.rpc.registerHandlers(
@@ -215,33 +225,36 @@ class GameMaster(object):
               self.streamHandleChildHypStreamStart,
               self.streamHandleChildHypStreamStop)])
 
-    def registerScreens(self):
+    def registerScreens(self) -> None:
         self.screens = verifyScreens(self.extra_screens,
                                      self.Config)
 
-    def registerNPCs(self, load=False):
-        npcs = verifyNPCs(self.extra_npcs,
-                          self.Config)
+    def registerNPCs(self, load: bool = False) -> None:
+        npcs: List[NPC] = verifyNPCs(self.extra_npcs, self.Config)
 
-        if load and self.save_state['npcs'] is not None:
+        if self.save_state is None:
+            pass
+        elif load and self.save_state['npcs'] is not None:
             for saved_npc in self.save_state['npcs']:
-                loaded_npc = None
+                loaded_npc: Optional[NPC] = None
                 for npc in npcs:
                     if npc.name == saved_npc['name']:
                         loaded_npc = npc
                         break
+                    else:
+                        print(npc.name == saved_npc['name'])
 
                 if loaded_npc is not None:
-                    tracker = NPCTracker.load(saved_npc,
-                                              loaded_npc,
-                                              self.rpc,
-                                              self.asyncData)
+                    tracker: NPCTracker = NPCTracker.load(saved_npc,
+                                                          loaded_npc,
+                                                          self.rpc,
+                                                          self.asyncData)
                     self.npcs.append(tracker)
                     npcs.remove(loaded_npc)
 
         for npc in npcs:
             # Get npc id based on list length
-            npc_id = len(self.npcs)
+            npc_id: int = len(self.npcs)
 
             try:
                 tracker = NPCTracker(id=npc_id,
@@ -259,20 +272,22 @@ class GameMaster(object):
             # Add tracker to npc list
             self.npcs.append(tracker)
 
-    def registerBackStories(self, load=False):
-        backstories = verifyBackStories(
+    def registerBackStories(self, load: bool = False) -> None:
+        backstories: List[BackStory] = verifyBackStories(
             self.extra_backstories, self.Config)
 
-        if load and self.save_state.get('backstories', None) is not None:
+        if self.save_state is None:
+            pass
+        elif load and self.save_state.get('backstories', None) is not None:
             for saved_backstory in self.save_state['backstories']:
-                loaded_backstory = None
+                loaded_backstory: Optional[BackStory] = None
                 for backstory in backstories:
                     if backstory.name == saved_backstory['name']:
                         loaded_backstory = backstory
                         break
 
                 if loaded_backstory is not None:
-                    tracker = BackStoryTracker.load(
+                    tracker: BackStoryTracker = BackStoryTracker.load(
                         saved_backstory, loaded_backstory,
                         self.rpc, self.asyncData)
                     self.backstories.append(tracker)
@@ -280,8 +295,8 @@ class GameMaster(object):
 
         for backstory in backstories:
             # Get backstory id based on list length
-            backstory_id = len(self.backstories)
-            category = backstory.registration.category
+            backstory_id: int = len(self.backstories)
+            category: str = backstory.registration.category
 
             if category not in self.backstory_categories.keys():
                 self.backstory_categories[
@@ -304,30 +319,32 @@ class GameMaster(object):
             self.backstories.append(tracker)
             self.backstory_categories[category].addBackStoryTracker(tracker)
 
-    def registerPlayers(self, load=False):
-        unloaded_players = verifyPlayers(self.extra_players,
-                                         self.Config)
+    def registerPlayers(self, load: bool = False) -> None:
+        unloaded_players: List[Player] = verifyPlayers(self.extra_players,
+                                                       self.Config)
 
-        if load and self.save_state['players'] is not None:
+        if self.save_state is None:
+            pass
+        elif load and self.save_state['players'] is not None:
             for saved_player in self.save_state['players']:
-                loaded_player = None
+                loaded_player: Optional[Player] = None
                 for player in unloaded_players:
                     if player.name == saved_player['name']:
                         loaded_player = player
                         break
 
                 if loaded_player is not None:
-                    tracker = PlayerTracker.load(saved_player,
-                                                 loaded_player,
-                                                 self.rpc,
-                                                 self.asyncData)
+                    tracker: PlayerTracker = PlayerTracker.load(saved_player,
+                                                                loaded_player,
+                                                                self.rpc,
+                                                                self.asyncData)
                     tracker.maxTurnTime = self._maxTurnTime
                     self.players.append(tracker)
                     unloaded_players.remove(loaded_player)
 
         for player in unloaded_players:
             # Get player id based on list length
-            player_id = len(self.players)
+            player_id: int = len(self.players)
 
             try:
                 tracker = PlayerTracker(id=player_id,
@@ -359,13 +376,13 @@ class GameMaster(object):
                     self.hyp_interests[interest] = []
                 self.hyp_interests[interest].append(tracker.id)
 
-    async def watchGame(self):
+    async def watchGame(self) -> None:
         while self.gameRunning:
             await asyncio.sleep(.01)
 
         self.stop()
 
-    def startGame(self, asyncio_enable=False):
+    def startGame(self, asyncio_enable: bool = False) -> None:
         if self.newGamePlus:
             self.load()
 
@@ -376,9 +393,9 @@ class GameMaster(object):
         self.gameRunning = True
         self.gameThread.start()
 
-        if not self.newGamePlus:
+        if not self.newGamePlus and self.options is not None:
             if self.options.file is not None:
-                FileObj = self.objects[0]
+                FileObj: FileObject = self.objects[0]
                 for npc in self.npcs:
                     LOGGER.debug(
                         "Sending Object %d to npc %s" % (FileObj.id, npc.name))
@@ -402,7 +419,7 @@ class GameMaster(object):
                 self.astop()
                 self.join()
 
-    def engageBackStories(self):
+    def engageBackStories(self) -> None:
         for fact in self.backstory_facts:
             for (category,
                  backstory_category) in self.backstory_categories.items():
@@ -414,21 +431,25 @@ class GameMaster(object):
                     LOGGER.exception(
                         "Error calling BackStory handleFact function")
 
-    def join(self):
-        self.gameThread.join()
+    def join(self) -> None:
+        if self.gameThread:
+            self.gameThread.join()
 
-    def _parse_screen_options(self, screen):
-        options = screen.registration.options.parse(
-            screen.config.options,
-            screen.config.common
-        )
-        return options
+    def _parse_screen_options(self, screen: Screen) -> Dict[str, Dict]:
+        if screen.config is not None:
+            options: Dict[str, Dict] = screen.registration.options.parse(
+                screen.config.options,
+                screen.config.common
+            )
+            return options
+        else:
+            raise ConfigNotFoundError
 
-    def provideData(self, screen_name, printable=False):
+    def provideData(self, screen_name: str, printable: bool = False):
         if screen_name not in self.screens:
             raise ValueError("No screen by that name")
 
-        options = self._parse_screen_options(
+        options: Dict[str, Dict] = self._parse_screen_options(
             self.screens[screen_name]
         )
         screen = self.screens[screen_name].cls(objects=self.objects,
@@ -440,17 +461,18 @@ class GameMaster(object):
         else:
             return screen.filter()
 
-    def save(self):
+    def save(self) -> Dict:
         """Save current game state for later ingestion
         """
-        save_state = {'players': list(),
-                      'npcs': list(),
-                      'objects': list(),
-                      'facts': dict(),
-                      'hyps': dict(),
-                      'engine': GAME_ENGINE_VERSION_RAW}
+        save_state: Dict = {'players': list(),
+                            'npcs': list(),
+                            'objects': list(),
+                            'facts': dict(),
+                            'hyps': dict(),
+                            'engine': GAME_ENGINE_VERSION_RAW}
 
-        save_state['temp_base'] = self.tempHandler.temporary_base
+        if self.tempHandler is not None:
+            save_state['temp_base'] = self.tempHandler.temporary_base
 
         # Save PlayerTracker Information
         save_state['players'] = \
@@ -471,11 +493,15 @@ class GameMaster(object):
 
         return save_state
 
-    def load(self):
+    def load(self) -> None:
         """Load a game from a save_state
         """
+
+        if self.save_state is None:
+            raise TypeError(("Save state must be specified"))
+
         try:
-            state_version = parseVersion(self.save_state['engine'])
+            state_version: str = parseVersion(self.save_state['engine'])
         except KeyError:
             state_version = parseVersion('0.0.0')
 
@@ -503,9 +529,9 @@ class GameMaster(object):
                         if not player.checkIfHandledFact(fact):
                             player.handleFact(fact)
 
-    def getEntityName(self, entity):
+    def getEntityName(self, entity: Entity) -> str:
         if entity.isPlayer:
-            name = self.players[entity.id].name
+            name: str = self.players[entity.id].name
         elif entity.isNPC:
             name = self.npcs[entity.id].name
         elif entity.isBackStory:
@@ -515,54 +541,55 @@ class GameMaster(object):
 
         return name
 
-    def astop(self):
+    def astop(self) -> None:
         try:
             # Cleanup async loop before calling stop function
             self.asyncData.eventloop.stop()
             self.asyncData.eventloop.close()
-            new_loop = asyncio.new_event_loop()
+            new_loop: AbstractEventLoop = asyncio.new_event_loop()
             asyncio.set_event_loop(new_loop)
         except Exception:
             LOGGER.warning(
                 "Exception trying to cleanup event loop", exc_info=True)
         self.stop()
 
-    def stop(self):
+    def stop(self) -> None:
         try:
             self.rpc.stop()
         except Exception:
             LOGGER.warning("Exception trying to stop GM", exc_info=True)
 
-    def cleanup(self):
-        if self.options.save_file is None and not self.newGamePlus:
+    def cleanup(self) -> None:
+        if self.options is not None and self.tempHandler is not None and \
+                self.options.save_file is None and not self.newGamePlus:
             try:
                 self.tempHandler.cleanup()
             except TemporaryDirectoryError:
                 raise
 
     """ Game Thread Functions """
-    def runGame(self):
+    def runGame(self) -> None:
         LOGGER.debug("Starting Game")
         self.rpc.start()
         self.rpc.join()
         self.gameRunning = False
         self._reportRuntime()
 
-    def _reportRuntime(self):
-        runtime_threshold = 0.00009
-        npc_runtimes = sorted(
+    def _reportRuntime(self) -> None:
+        runtime_threshold: float = 0.00009
+        npc_runtimes: List[Tuple[float, str]] = sorted(
             [(npc.runtime, npc.name) for npc in self.npcs],
             key=lambda el: el[0],
             reverse=True
         )
 
-        player_runtimes = sorted(
+        player_runtimes: List[Tuple[float, str]] = sorted(
             [(player.runtime, player.name) for player in self.players],
             key=lambda el: el[0],
             reverse=True
         )
 
-        max_name = max(
+        max_name: int = max(
             [len(name) for (runtime, name) in npc_runtimes + player_runtimes])
 
         for (runtime, npc_name) in npc_runtimes:
@@ -577,11 +604,11 @@ class GameMaster(object):
                     "Player '{0: <{2}}' - runtime {1: .4f}s".format(
                         player_name, runtime, max_name))
 
-    def checkGameState(self, last_action_ts):
-        waiting = False
+    def checkGameState(self, last_action_ts: float) -> bool:
+        waiting: bool = False
 
         if self._maxGameTime > 0:
-            runtime = time.time() - self._gameStartTime
+            runtime: float = time.time() - self._gameStartTime
             if runtime > self._maxGameTime:
                 LOGGER.info(
                     f"Maximum game time ({self._maxGameTime}s) reached, "
@@ -623,115 +650,142 @@ class GameMaster(object):
 
         return False
 
-    def handleNoop(self, msg):
+    def handleNoop(self, msg) -> None:
         """handleNoop is meant to reset the game timer"""
 
-    def handlePrint(self, msg):
-        name = self.getEntityName(msg.entity)
+    def handlePrint(self, msg: RPCRequest) -> None:
+        name: str = self.getEntityName(msg.entity)
+        if isinstance(msg.args, Namespace):
 
-        if 'kwargs' not in msg.args:
-            self.rpc.sendErrorResponse(
-                msg, reason="Missing required field in args")
-            return
+            if 'kwargs' not in msg.args:
+                self.rpc.sendErrorResponse(
+                    msg, reason="Missing required field in args")
+                return
 
-        if 'args' not in msg.args:
-            self.rpc.sendErrorResponse(
-                msg, reason="Missing required field in args")
-            return
+            if 'args' not in msg.args:
+                self.rpc.sendErrorResponse(
+                    msg, reason="Missing required field in args")
+                return
 
-        sep = ' '
-        for (key, value) in msg.args.kwargs.items():
-            if key == 'sep':
-                sep = value
+            sep: str = ' '
+            for (key, value) in msg.args.kwargs.items():
+                if key == 'sep':
+                    sep = value
+                else:
+                    self.rpc.sendErrorResponse(
+                        msg, reason="Unexpected field in kwargs")
+                    return
+
+            out_str: str = "%s: " % (name)
+
+            if len(msg.args.args) == 1:
+                try:
+                    print_string: str = str(msg.args.args[0])
+                except Exception:
+                    LOGGER.exception("Unable to format string for printing")
+                    self.rpc.sendErrorResponse(
+                        msg, reason="Unable to convert contents to string")
+                    return
             else:
-                self.rpc.sendErrorResponse(
-                    msg, reason="Unexpected field in kwargs")
-                return
+                try:
+                    print_string = sep.join([str(arg) for arg in
+                                             msg.args.args])
+                except Exception:
+                    LOGGER.exception("Unable to format string for printing")
+                    self.rpc.sendErrorResponse(
+                        msg, reason="Unable to convert arguments to string")
+                    return
 
-        out_str = "%s: " % (name)
-
-        if len(msg.args.args) == 1:
-            try:
-                print_string = str(msg.args.args[0])
-            except Exception:
-                LOGGER.exception("Unable to format string for printing")
-                self.rpc.sendErrorResponse(
-                    msg, reason="Unable to convert contents to string")
-                return
+            LOGGER.info(out_str + print_string)
         else:
-            try:
-                print_string = sep.join([str(arg) for arg in msg.args.args])
-            except Exception:
-                LOGGER.exception("Unable to format string for printing")
-                self.rpc.sendErrorResponse(
-                    msg, reason="Unable to convert arguments to string")
-                return
+            self.rpc.sendErrorResponse(
+                msg, reason="args field formatted incorrectly")
+            return
 
-        LOGGER.info(out_str + print_string)
-
-    def _checkFactStreamerConditions(self, fact, msg, stream_msg):
+    def _checkFactStreamerConditions(self,
+                                     fact: Fact,
+                                     msg: RPCRequest,
+                                     stream_msg: RPCStartStreamRequest
+                                     ) -> bool:
         if msg.entity == stream_msg.entity:
             return False
 
         if stream_msg.stream.command == RPCStreamCommands.childFactStream:
             args = stream_msg.stream.args
-            if (args.object_id is not None and
-                    args.object_id not in fact.parentObjects):
-                return False
-            elif (args.fact_id is not None and
-                    args.fact_id not in fact.parentFacts):
-                return False
-            elif (args.hyp_id is not None and
-                    args.hyp_id not in fact.parentHyps):
+            if isinstance(args, Namespace):
+                if (args.object_id is not None and
+                        args.object_id not in fact.parentObjects):
+                    return False
+                elif (args.fact_id is not None and
+                        args.fact_id not in fact.parentFacts):
+                    return False
+                elif (args.hyp_id is not None and
+                        args.hyp_id not in fact.parentHyps):
+                    return False
+            else:
                 return False
 
         return True
 
-    def _checkHypStreamerConditions(self, hyp, msg, stream_msg):
+    def _checkHypStreamerConditions(self,
+                                    hyp: Fact,
+                                    msg: RPCRequest,
+                                    stream_msg: RPCStartStreamRequest
+                                    ) -> bool:
         if msg.entity == stream_msg.entity:
             return False
 
         if stream_msg.stream.command == RPCStreamCommands.childHypStream:
             args = stream_msg.stream.args
-            if (args.object_id is not None and
-                    args.object_id not in hyp.parentObjects):
-                return False
-            elif (args.fact_id is not None and
-                    args.fact_id not in hyp.parentFacts):
-                return False
-            elif (args.hyp_id is not None and
-                    args.hyp_id not in hyp.parentHyps):
+            if isinstance(args, Namespace):
+                if (args.object_id is not None and
+                        args.object_id not in hyp.parentObjects):
+                    return False
+                elif (args.fact_id is not None and
+                        args.fact_id not in hyp.parentFacts):
+                    return False
+                elif (args.hyp_id is not None and
+                        args.hyp_id not in hyp.parentHyps):
+                    return False
+            else:
                 return False
 
         return True
 
-    def _checkObjectStreamerConditions(self, obj, msg, stream_msg):
+    def _checkObjectStreamerConditions(self,
+                                       obj: FileObject,
+                                       msg: RPCRequest,
+                                       stream_msg: RPCStartStreamRequest
+                                       ) -> bool:
         if msg.entity == stream_msg.entity:
             return False
 
         if stream_msg.stream.command == RPCStreamCommands.childObjectStream:
             args = stream_msg.stream.args
-            if (args.object_id is not None and
-                    args.object_id not in obj.parentObjects):
-                return False
-            elif (args.fact_id is not None and
-                    args.fact_id not in obj.parentFacts):
-                return False
-            elif (args.hyp_id is not None and
-                    args.hyp_id not in obj.parentHyps):
+            if isinstance(args, Namespace):
+                if (args.object_id is not None and
+                        args.object_id not in obj.parentObjects):
+                    return False
+                elif (args.fact_id is not None and
+                        args.fact_id not in obj.parentFacts):
+                    return False
+                elif (args.hyp_id is not None and
+                        args.hyp_id not in obj.parentHyps):
+                    return False
+            else:
                 return False
         return True
 
-    def handleAddFact(self, msg):
-        if 'fact' not in msg.args:
+    def handleAddFact(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'fact' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'fact' not found in args")
             return
 
-        fact = msg.args.fact
+        fact: Fact = msg.args.fact
 
         try:
-            fact_id = self.facts.add(fact)
+            fact_id: int = self.facts.add(fact)
         except TypeError as e:
             self.rpc.sendErrorResponse(
                 msg, reason=str(e))
@@ -742,10 +796,12 @@ class GameMaster(object):
             obj.addChildFact(fact_id)
         for pfct in fact.parentFacts:
             fct = self.facts.findById(pfct)
-            fct.addChildFact(fact_id)
+            if fct is not None:
+                fct.addChildFact(fact_id)
         for phyp in fact.parentHyps:
             hyp = self.hyps.findById(phyp)
-            hyp.addChildFact(fact_id)
+            if hyp is not None:
+                hyp.addChildFact(fact_id)
 
         self.rpc.sendOKResponse(msg)
 
@@ -780,8 +836,8 @@ class GameMaster(object):
                     LOGGER.exception(("Unexpected exception sending fact "
                                       "to player"))
 
-    def handleAddHyp(self, msg):
-        if 'hyp' not in msg.args:
+    def handleAddHyp(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'hyp' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'hyp' not found in args")
             return
@@ -800,10 +856,12 @@ class GameMaster(object):
             obj.addChildHyp(hyp_id)
         for pfct in hyp.parentFacts:
             fct = self.facts.findById(pfct)
-            fct.addChildHyp(hyp_id)
+            if fct is not None:
+                fct.addChildHyp(hyp_id)
         for phyp in hyp.parentHyps:
             hyp = self.hyps.findById(phyp)
-            hyp.addChildHyp(hyp_id)
+            if hyp is not None:
+                hyp.addChildHyp(hyp_id)
 
         self.rpc.sendOKResponse(msg)
 
@@ -828,8 +886,8 @@ class GameMaster(object):
                     LOGGER.exception(("Unexpected exception sending hyp "
                                       "to player"))
 
-    def promoteHyp(self, hyp_id):
-        item = self.hyps.remove(hyp_id)
+    def promoteHyp(self, hyp_id: int) -> Fact:
+        item: Fact = self.hyps.remove(hyp_id)
         item._untaint()
         fact_id = self.facts.add(item)
 
@@ -840,36 +898,41 @@ class GameMaster(object):
             obj.addChildFact(fact_id)
         for pfct in item.parentFacts:
             fct = self.facts.findById(pfct)
-            fct.remChildHyp(hyp_id)
-            fct.addChildFact(fact_id)
+            if fct is not None:
+                fct.remChildHyp(hyp_id)
+                fct.addChildFact(fact_id)
         for phyp in item.parentHyps:
             hyp = self.hyps.findById(phyp)
-            hyp.remChildHyp(hyp_id)
-            hyp.addChildFact(fact_id)
+            if hyp is not None:
+                hyp.remChildHyp(hyp_id)
+                hyp.addChildFact(fact_id)
         for cobj in item.childObjects:
             obj = self.objects[cobj]
-            obj.remParentHyp(hyp_id)
-            obj.addParentFact(fact_id)
+            if obj is not None:
+                obj.remParentHyp(hyp_id)
+                obj.addParentFact(fact_id)
         for cfct in item.childFacts:
             fct = self.facts.findById(cfct)
-            fct.remParentHyp(hyp_id)
-            fct.addParentFact(fact_id)
+            if fct is not None:
+                fct.remParentHyp(hyp_id)
+                fct.addParentFact(fact_id)
         for chyp in item.childHyps:
             hyp = self.hyps.findById(chyp)
-            hyp.remParentHyp(hyp_id)
-            hyp.addParentFact(fact_id)
+            if hyp is not None:
+                hyp.remParentHyp(hyp_id)
+                hyp.addParentFact(fact_id)
 
         return item
 
-    def handlePromote(self, msg):
-        if 'hyp_id' not in msg.args:
+    def handlePromote(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'hyp_id' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'hyp_id' not found in args")
             return
 
-        hyp_id = msg.args.hyp_id
+        hyp_id: int = msg.args.hyp_id
         try:
-            item = self.promoteHyp(hyp_id)
+            item: Fact = self.promoteHyp(hyp_id)
         except Exception:
             self.rpc.sendErrorResponse(
                 msg, reason="Unable to promote hyp to fact")
@@ -877,22 +940,23 @@ class GameMaster(object):
 
         self.rpc.sendOKResponse(msg, result={'fact': item})
 
-    def handleAddObject(self, msg):
+    def handleAddObject(self, msg: RPCRequest) -> None:
         try:
-            object_data = msg.args.object_data
-            creator = msg.args.creator
-            parentObjects = msg.args.parentObjects
-            parentFacts = msg.args.parentFacts
-            parentHyps = msg.args.parentHyps
-            metadata = msg.args.metadata
-            encoding = msg.args.encoding
+            if isinstance(msg.args, Namespace):
+                object_data = msg.args.object_data
+                creator = msg.args.creator
+                parentObjects = msg.args.parentObjects
+                parentFacts = msg.args.parentFacts
+                parentHyps = msg.args.parentHyps
+                metadata = msg.args.metadata
+                encoding = msg.args.encoding
         except AttributeError as e:
             self.rpc.sendErrorResponse(msg, reason=str(e))
             return
 
-        isduplicate = False
+        isduplicate: bool = False
         try:
-            FileObj = self.objects.addObject(
+            FileObj: Optional[FileObject] = self.objects.addObject(
                 object_data,
                 _creator_=creator,
                 _parentObjects_=parentObjects,
@@ -909,6 +973,10 @@ class GameMaster(object):
                 reason="Unable to track object: %s" % (str(e)))
             return
 
+        if FileObj is None:
+            self.rpc.sendErrorResponse(msg, reason="Fileobject not found")
+            return
+
         if parentObjects:
             for pid in parentObjects:
                 pobj = self.objects[pid]
@@ -916,13 +984,15 @@ class GameMaster(object):
         if parentFacts:
             for fid in parentFacts:
                 pfct = self.facts.findById(fid)
-                pfct.addChildObject(FileObj.id)
+                if pfct is not None:
+                    pfct.addChildObject(FileObj.id)
         if parentHyps:
             for hid in parentHyps:
-                phyp = self.hypotheses.findById(hid)
-                phyp.addChildObject(FileObj.id)
+                phyp = self.hyps.findById(hid)
+                if phyp is not None:
+                    phyp.addChildObject(FileObj.id)
 
-        result = {'object_id': FileObj.id}
+        result: Dict[str, Union[int, FileObject]] = {'object_id': FileObj.id}
         self.rpc.sendOKResponse(msg, result=result)
 
         # Send object to streamers
@@ -941,38 +1011,40 @@ class GameMaster(object):
                 except Exception:
                     LOGGER.exception("Error calling NPC handleData function")
 
-    def handleGetObject(self, msg):
+    def handleGetObject(self, msg: RPCRequest) -> None:
         try:
-            # Try to reference fields to ensure msg has required fields
-            msg.entity.isPlayer
-            msg.entity.id
-            object_id = msg.args.object_id
+            if isinstance(msg.args, Namespace):
+                # Try to reference fields to ensure msg has required fields
+                msg.entity.isPlayer
+                msg.entity.id
+                object_id = msg.args.object_id
         except AttributeError as e:
             self.rpc.sendErrorResponse(msg, reason=str(e))
             return
 
         try:
-            FileObj = self.objects[object_id]
+            FileObj: FileObject = self.objects[object_id]
         except KeyError:
             self.rpc.sendErrorResponse(msg, reason="No object by that id")
             return
 
-        result = {'object': FileObj}
+        result: Dict[str, FileObject] = {'object': FileObj}
         self.rpc.sendOKResponse(msg, result=result)
 
-    def handleGetAllObjects(self, msg):
-        result = {'object_list': self.objects.tolist()}
+    def handleGetAllObjects(self, msg: RPCRequest) -> None:
+        result: Dict[str, List[FileObject]] = \
+            {'object_list': self.objects.tolist()}
         self.rpc.sendOKResponse(msg, result=result)
 
-    def handleGetFact(self, msg):
-        if 'fact_id' not in msg.args:
+    def handleGetFact(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'fact_id' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'fact_id' not found in args")
             return
 
-        fact_id = msg.args.fact_id
+        fact_id: int = msg.args.fact_id
 
-        fact = self.facts.findById(fact_id)
+        fact: Optional[Fact] = self.facts.findById(fact_id)
 
         if fact is not None:
             result = {'fact': fact}
@@ -980,14 +1052,14 @@ class GameMaster(object):
         else:
             self.rpc.sendErrorResponse(msg, reason="not found")
 
-    def handleGetAllFacts(self, msg):
-        if 'fact_type' not in msg.args:
+    def handleGetAllFacts(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'fact_type' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'fact_type' not found in args")
             return
 
-        fact_types = msg.args.fact_type
-        fact_list = list()
+        fact_types: List[str] = msg.args.fact_type
+        fact_list: List[Fact] = list()
 
         try:
             for ft in fact_types:
@@ -1002,14 +1074,14 @@ class GameMaster(object):
         result = {'fact_list': fact_list}
         self.rpc.sendOKResponse(msg, result=result)
 
-    def handleGetHyp(self, msg):
-        if 'hyp_id' not in msg.args:
+    def handleGetHyp(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'hyp_id' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'hyp_id' not found in args")
             return
 
-        hyp_id = msg.args.hyp_id
-        hyp = self.hyps.findById(hyp_id)
+        hyp_id: int = msg.args.hyp_id
+        hyp: Optional[Fact] = self.hyps.findById(hyp_id)
 
         if hyp is not None:
             result = {'hyp': hyp}
@@ -1017,14 +1089,14 @@ class GameMaster(object):
         else:
             self.rpc.sendErrorResponse(msg, reason="not found")
 
-    def handleGetAllHyps(self, msg):
-        if 'hyp_type' not in msg.args:
+    def handleGetAllHyps(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace) or 'hyp_type' not in msg.args:
             self.rpc.sendErrorResponse(
                 msg, reason="Required field 'hyp_type' not found in args")
             return
 
-        hyp_types = msg.args.hyp_type
-        hyp_list = list()
+        hyp_types: List[str] = msg.args.hyp_type
+        hyp_list: List[Fact] = list()
 
         try:
             for ft in hyp_types:
@@ -1039,9 +1111,12 @@ class GameMaster(object):
         result = {'hyp_list': hyp_list}
         self.rpc.sendOKResponse(msg, result=result)
 
-    def handleWaitTillFact(self, msg):
-        fact_type = msg.args.fact_type
-        last_fact = msg.args.last_fact
+    def handleWaitTillFact(self, msg: RPCRequest) -> None:
+        if not isinstance(msg.args, Namespace):
+            return
+
+        fact_type: List[str] = msg.args.fact_type
+        last_fact: Optional[int] = msg.args.last_fact
 
         # Based on last_fact, see if any facts have been added
         # If any have been added respond back immediately with the first one
@@ -1051,12 +1126,14 @@ class GameMaster(object):
                 facts = self.facts.getColumn(ft)
                 if facts is not None:
                     for fact in facts:
-                        if not newer_fact:
-                            if fact.id > last_fact:
-                                newer_fact = fact
-                        else:
-                            if fact.id > last_fact and fact.id < newer_fact.id:
-                                newer_fact = fact
+                        if fact.id is not None:
+                            if not newer_fact:
+                                if fact.id > last_fact:
+                                    newer_fact = fact
+                            else:
+                                if fact.id > last_fact and \
+                                        fact.id < newer_fact.id:
+                                    newer_fact = fact
 
             if newer_fact:
                 result = {'fact': newer_fact}
@@ -1065,165 +1142,185 @@ class GameMaster(object):
         # else need to put data into wait list
         self.factWaitList.append((fact_type, msg))
 
-    def streamHandleFactStreamStart(self, msg):
-        fact_types = msg.stream.args.fact_types
-        only_latest = msg.stream.args.only_latest
+    def streamHandleFactStreamStart(self, msg: RPCStartStreamRequest) -> None:
+        if isinstance(msg.stream.args, Namespace):
+            fact_types: List[str] = msg.stream.args.fact_types
+            only_latest: bool = msg.stream.args.only_latest
 
-        if not only_latest:
+            if not only_latest:
+                for ft in fact_types:
+                    factColumn: Optional[TableColumn] = \
+                        self.facts.getColumn(ft)
+                    if factColumn is not None:
+                        for fact in factColumn:
+                            result = {'fact': fact}
+                            self.rpc.sendResponse(msg,
+                                                  RPCResponseStatus.ok,
+                                                  result=result)
+
             for ft in fact_types:
-                factColumn = self.facts.getColumn(ft)
-                if factColumn is not None:
-                    for fact in factColumn:
-                        result = {'fact': fact}
-                        self.rpc.sendResponse(msg,
-                                              RPCResponseStatus.ok,
-                                              result=result)
+                if ft not in self.factStreamList:
+                    self.factStreamList[ft] = list()
+                self.factStreamList[ft].append((msg))
 
-        for ft in fact_types:
-            if ft not in self.factStreamList:
-                self.factStreamList[ft] = list()
-            self.factStreamList[ft].append((msg))
+    def streamHandleFactStreamStop(self, msg: RPCStopStreamRequest) -> None:
+        if isinstance(msg.args, Namespace):
+            stream_id: int = msg.args.stream_id
+            for (fact_type, streamers) in self.factStreamList.items():
+                delList = list()
+                for streamer in streamers:
+                    if (streamer.id == stream_id and
+                            streamer.entity == msg.entity):
+                        delList.append(streamer)
 
-    def streamHandleFactStreamStop(self, msg):
-        stream_id = msg.args.stream_id
-        for (fact_type, streamers) in self.factStreamList.items():
-            delList = list()
-            for streamer in streamers:
-                if (streamer.id == stream_id and
-                        streamer.entity == msg.entity):
-                    delList.append(streamer)
+                for streamer in delList:
+                    streamers.remove(streamer)
 
-            for streamer in delList:
-                streamers.remove(streamer)
+    def streamHandleHypStreamStart(self, msg: RPCStartStreamRequest) -> None:
+        if isinstance(msg.stream.args, Namespace):
+            hyp_types: List[str] = msg.stream.args.hyp_types
+            only_latest: bool = msg.stream.args.only_latest
 
-    def streamHandleHypStreamStart(self, msg):
-        hyp_types = msg.stream.args.hyp_types
-        only_latest = msg.stream.args.only_latest
+            if not only_latest:
+                for ft in hyp_types:
+                    hypColumn: Optional[TableColumn] = self.hyps.getColumn(ft)
+                    if hypColumn is not None:
+                        for hyp in hypColumn:
+                            result = {'hyp': hyp}
+                            self.rpc.sendResponse(msg,
+                                                  RPCResponseStatus.ok,
+                                                  result=result)
 
-        if not only_latest:
             for ft in hyp_types:
-                hypColumn = self.hyps.getColumn(ft)
-                if hypColumn is not None:
-                    for hyp in hypColumn:
-                        result = {'hyp': hyp}
-                        self.rpc.sendResponse(msg,
-                                              RPCResponseStatus.ok,
-                                              result=result)
+                if ft not in self.hypStreamList:
+                    self.hypStreamList[ft] = list()
+                self.hypStreamList[ft].append((msg))
 
-        for ft in hyp_types:
-            if ft not in self.hypStreamList:
-                self.hypStreamList[ft] = list()
-            self.hypStreamList[ft].append((msg))
+    def streamHandleHypStreamStop(self, msg: RPCStopStreamRequest) -> None:
+        if isinstance(msg.args, Namespace):
+            stream_id: int = msg.args.stream_id
+            for (hyp_type, streamers) in self.hypStreamList.items():
+                delList = list()
+                for streamer in streamers:
+                    if (streamer.id == stream_id and
+                            streamer.entity == msg.entity):
+                        delList.append(streamer)
 
-    def streamHandleHypStreamStop(self, msg):
-        stream_id = msg.args.stream_id
-        for (hyp_type, streamers) in self.hypStreamList.items():
-            delList = list()
-            for streamer in streamers:
-                if (streamer.id == stream_id and
-                        streamer.entity == msg.entity):
-                    delList.append(streamer)
+                for streamer in delList:
+                    streamers.remove(streamer)
 
-            for streamer in delList:
-                streamers.remove(streamer)
+    def streamHandleChildFactStreamStart(self,
+                                         msg: RPCStartStreamRequest
+                                         ) -> None:
+        if isinstance(msg.stream.args, Namespace):
+            fact_id: int = msg.stream.args.fact_id
+            object_id: int = msg.stream.args.object_id
+            hyp_id: int = msg.stream.args.hyp_id
+            fact_types: List[str] = msg.stream.args.fact_types
+            only_latest: bool = msg.stream.args.only_latest
 
-    def streamHandleChildFactStreamStart(self, msg):
-        fact_id = msg.stream.args.fact_id
-        object_id = msg.stream.args.object_id
-        hyp_id = msg.stream.args.hyp_id
-        fact_types = msg.stream.args.fact_types
-        only_latest = msg.stream.args.only_latest
-
-        if not only_latest:
+            if not only_latest:
+                for ft in fact_types:
+                    factColumn: Optional[TableColumn] = \
+                        self.facts.getColumn(ft)
+                    if factColumn is not None:
+                        for fact in factColumn:
+                            if (object_id is not None and
+                                    object_id not in fact.parentObjects):
+                                continue
+                            elif(fact_id is not None and
+                                    fact_id not in fact.parentFacts):
+                                continue
+                            elif(hyp_id is not None and
+                                    hyp_id not in fact.parentHyps):
+                                continue
+                            result = {'fact': fact}
+                            self.rpc.sendResponse(msg,
+                                                  RPCResponseStatus.ok,
+                                                  result=result)
             for ft in fact_types:
-                factColumn = self.facts.getColumn(ft)
-                if factColumn is not None:
-                    for fact in factColumn:
-                        if (object_id is not None and
-                                object_id not in fact.parentObjects):
-                            continue
-                        elif(fact_id is not None and
-                                fact_id not in fact.parentFacts):
-                            continue
-                        elif(hyp_id is not None and
-                                hyp_id not in fact.parentHyps):
-                            continue
-                        result = {'fact': fact}
-                        self.rpc.sendResponse(msg,
-                                              RPCResponseStatus.ok,
-                                              result=result)
-        for ft in fact_types:
-            if ft not in self.factStreamList:
-                self.factStreamList[ft] = list()
-            self.factStreamList[ft].append(msg)
+                if ft not in self.factStreamList:
+                    self.factStreamList[ft] = list()
+                self.factStreamList[ft].append(msg)
 
-    def streamHandleChildFactStreamStop(self, msg):
+    def streamHandleChildFactStreamStop(self,
+                                        msg: RPCStopStreamRequest
+                                        ) -> None:
         self.streamHandleFactStreamStop(msg)
 
-    def streamHandleChildHypStreamStart(self, msg):
-        fact_id = msg.stream.args.fact_id
-        object_id = msg.stream.args.object_id
-        hyp_id = msg.stream.args.hyp_id
-        types = msg.stream.args.types
-        only_latest = msg.stream.args.only_latest
+    def streamHandleChildHypStreamStart(self,
+                                        msg: RPCStartStreamRequest
+                                        ) -> None:
+        if isinstance(msg.stream.args, Namespace):
+            fact_id: int = msg.stream.args.fact_id
+            object_id: int = msg.stream.args.object_id
+            hyp_id: int = msg.stream.args.hyp_id
+            types: List[str] = msg.stream.args.types
+            only_latest: bool = msg.stream.args.only_latest
 
-        if not only_latest:
+            if not only_latest:
+                for ft in types:
+                    hypColumn: Optional[TableColumn] = self.hyps.getColumn(ft)
+                    if hypColumn is not None:
+                        for hyp in hypColumn:
+                            if (object_id is not None and
+                                    object_id not in hyp.parentObjects):
+                                continue
+                            elif(fact_id is not None and
+                                    fact_id not in hyp.parentFacts):
+                                continue
+                            elif(hyp_id is not None and
+                                    hyp_id not in hyp.parentHyps):
+                                continue
+                            result = {'hyp': hyp}
+                            self.rpc.sendResponse(msg,
+                                                  RPCResponseStatus.ok,
+                                                  result=result)
             for ft in types:
-                hypColumn = self.hyps.getColumn(ft)
-                if hypColumn is not None:
-                    for hyp in hypColumn:
-                        if (object_id is not None and
-                                object_id not in hyp.parentObjects):
-                            continue
-                        elif(fact_id is not None and
-                                fact_id not in hyp.parentFacts):
-                            continue
-                        elif(hyp_id is not None and
-                                hyp_id not in hyp.parentHyps):
-                            continue
-                        result = {'hyp': hyp}
-                        self.rpc.sendResponse(msg,
-                                              RPCResponseStatus.ok,
-                                              result=result)
-        for ft in types:
-            if ft not in self.hypStreamList:
-                self.hypStreamList[ft] = list()
-            self.hypStreamList[ft].append(msg)
+                if ft not in self.hypStreamList:
+                    self.hypStreamList[ft] = list()
+                self.hypStreamList[ft].append(msg)
 
-    def streamHandleChildHypStreamStop(self, msg):
+    def streamHandleChildHypStreamStop(self,
+                                       msg: RPCStopStreamRequest
+                                       ) -> None:
         self.streamHandleHypStreamStop(msg)
 
-    def streamHandleChildObjectStreamStart(self, msg):
-        fact_id = msg.stream.args.fact_id
-        hyp_id = msg.stream.args.hyp_id
-        object_id = msg.stream.args.object_id
-        only_latest = msg.stream.args.only_latest
+    def streamHandleChildObjectStreamStart(self,
+                                           msg: RPCStartStreamRequest
+                                           ) -> None:
+        if isinstance(msg.stream.args, Namespace):
+            fact_id: int = msg.stream.args.fact_id
+            hyp_id: int = msg.stream.args.hyp_id
+            object_id: int = msg.stream.args.object_id
+            only_latest: bool = msg.stream.args.only_latest
 
-        if not only_latest:
-            for obj in self.objects:
-                if (object_id is not None and
-                        object_id not in obj.parentObjects):
-                    continue
-                elif(fact_id is not None and
-                        fact_id not in obj.parentFacts):
-                    continue
-                elif(hyp_id is not None and
-                        hyp_id not in obj.parentHyps):
-                    continue
-                result = {'object': obj}
-                self.rpc.sendResponse(msg,
-                                      RPCResponseStatus.ok,
-                                      result=result)
+            if not only_latest:
+                for obj in self.objects:
+                    if (object_id is not None and
+                            object_id not in obj.parentObjects):
+                        continue
+                    elif(fact_id is not None and
+                            fact_id not in obj.parentFacts):
+                        continue
+                    elif(hyp_id is not None and
+                            hyp_id not in obj.parentHyps):
+                        continue
+                    result = {'object': obj}
+                    self.rpc.sendResponse(msg,
+                                          RPCResponseStatus.ok,
+                                          result=result)
 
-        self.objectStreamList.append(msg)
+            self.objectStreamList.append(msg)
 
-    def streamHandleChildObjectStreamStop(self, msg):
-        stream_id = msg.args.stream_id
-        delList = list()
-        for streamer in self.objectStreamList:
-            if (streamer.id == stream_id and
-                    streamer.entity == msg.entity):
-                delList.append(streamer)
+    def streamHandleChildObjectStreamStop(self, msg: RPCStopStreamRequest):
+        if isinstance(msg.args, Namespace):
+            stream_id: int = msg.args.stream_id
+            delList = list()
+            for streamer in self.objectStreamList:
+                if (streamer.id == stream_id and
+                        streamer.entity == msg.entity):
+                    delList.append(streamer)
 
-        for streamer in delList:
-            self.objectStreamList.remove(streamer)
+            for streamer in delList:
+                self.objectStreamList.remove(streamer)

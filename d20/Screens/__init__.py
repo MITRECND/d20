@@ -1,26 +1,33 @@
 import os
+from typing import TYPE_CHECKING, List, Dict, Set, Type, Optional
 
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 from d20.Manual.Registration import ScreenRegistrationForm
+from d20.Manual.Config import Configuration, EntityConfiguration
 from d20.Manual.Utils import loadExtras
 from d20.version import GAME_ENGINE_VERSION
 
-from typing import Dict, Set
 
-LOADED: Set = set()
-SCREENS: Dict = dict()
-LOGGER = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from d20.Manual.Templates import ScreenTemplate
+
+
+LOADED: Set[str] = set()
+SCREENS: Dict[str, 'Screen'] = dict()
+LOGGER: Logger = logging.getLogger(__name__)
 
 
 class Screen:
-    def __init__(self, name, cls, registration):
-        self.name = name
-        self.cls = cls
-        self.registration = registration
-        self.config = None
+    def __init__(self, name: str, cls: Type['ScreenTemplate'],
+                 registration: ScreenRegistrationForm) -> None:
+        self.name: str = name
+        self.cls: Type['ScreenTemplate'] = cls
+        self.registration: ScreenRegistrationForm = registration
+        self.config: Optional[EntityConfiguration] = None
 
 
-def verifyScreens(extra_screens, config):
+def verifyScreens(extra_screens: List[str],
+                  config: Configuration) -> Dict[str, Screen]:
     """Load and verify screens
 
         This function takes screens available on-disk and loads
@@ -53,15 +60,18 @@ def verifyScreens(extra_screens, config):
     return dict(screens)
 
 
-def loadScreen(screen_class, **kwargs):
-    reg = ScreenRegistrationForm(**kwargs)
-    ev = GAME_ENGINE_VERSION
+def loadScreen(screen_class: Type['ScreenTemplate'], **kwargs: str) -> None:
+    reg: ScreenRegistrationForm = ScreenRegistrationForm(**kwargs)
+    ev: str = GAME_ENGINE_VERSION
     if reg.engine_version > ev:
         raise ValueError("Player %s expects version %s or newer"
                          % (reg.name, reg.engine_version))
 
+    if reg.name is None:
+        raise ValueError("NPC does not have a name")
+
     global SCREENS
-    clsname = screen_class.__qualname__
+    clsname: str = screen_class.__qualname__
     if clsname in SCREENS:
         LOGGER.warning("Screen with class name %s already registered"
                        % (clsname))
@@ -77,7 +87,7 @@ def loadScreen(screen_class, **kwargs):
     SCREENS[clsname] = Screen(reg.name, screen_class, reg)
 
 
-def loadScreens(extra_screens):
+def loadScreens(extra_screens: List[str]) -> Dict[str, Screen]:
     # Get this files directory
     paths = [os.path.dirname(os.path.abspath(__file__))]
     paths.extend(extra_screens)

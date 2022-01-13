@@ -1,19 +1,19 @@
 import os
 import time
 import inspect
-
 from collections.abc import Iterable
 from collections import OrderedDict
+from typing import Callable, List, Dict, Optional, Set, Union, Tuple, Type
 
 from inspect import (Parameter,
                      Signature)
-from typing import Optional, Dict, Set
 from .Fields import FactField
 
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 from d20.Manual.Utils import loadExtras
 
-LOGGER = logging.getLogger(__name__)
+
+LOGGER: Logger = logging.getLogger(__name__)
 RegisteredFactGroups: Dict[str, Set] = dict()
 RegisteredFacts: Set = set()
 __all__ = ["registerFact",
@@ -26,7 +26,7 @@ __all__ = ["registerFact",
            "loadFacts"]
 
 
-def isFact(arg):
+def isFact(arg: str) -> bool:
     """Function to determine whether a string is a registered fact
     """
     if arg in RegisteredFacts:
@@ -35,7 +35,7 @@ def isFact(arg):
     return False
 
 
-def isFactGroup(arg):
+def isFactGroup(arg: str) -> bool:
     """Function to determine whether a string is a registered fact group
     """
     if arg in RegisteredFactGroups.keys():
@@ -44,22 +44,24 @@ def isFactGroup(arg):
     return False
 
 
-def resolveFacts(*args):
+def resolveFacts(*args) -> List[str]:
     """Function to expand and consilidate facts and fact groups
 
         This function takes a list of facts or fact groups as either an
         iterable or variadic arguments and returns a list of all facts,
         converting fact groups into individual facts it represents
     """
+    facts: Union[Tuple, Iterable]
     if (len(args) == 1 and
             not isinstance(args[0], str) and
             isinstance(args[0], Iterable)):
-        args = args[0]
-
-    resolved = []
-    for fact in args:
+        facts = args[0]
+    else:
+        facts = args
+    resolved: List[str] = []
+    for fact in facts:
         if fact in RegisteredFactGroups.keys():
-            resolved.extend(list(RegisteredFactGroups[fact]))
+            resolved.extend(RegisteredFactGroups[fact])
         elif fact in RegisteredFacts:
             resolved.append(fact)
         else:
@@ -68,7 +70,7 @@ def resolveFacts(*args):
     return resolved
 
 
-def registerFact(*args, **kwargs):
+def registerFact(*args: str, **kwargs: str) -> Callable:
     """A decorator for registering a Fact with a given type
 
     Args: fact_groups(str): The interest groups associated with this fact
@@ -77,7 +79,7 @@ def registerFact(*args, **kwargs):
     if len(args) > 0 and inspect.isclass(args[0]):
         return registerFact()(args[0])
 
-    def _registerFact(cls):
+    def _registerFact(cls: 'Fact') -> Union['Fact', str]:
         global RegisteredFacts
         global RegisteredFactGroups
         global __all__
@@ -88,7 +90,8 @@ def registerFact(*args, **kwargs):
         LOGGER.debug("Registering Fact %s"
                      % (cls.__qualname__))
 
-        existing_class = globals().get(cls.__qualname__, None)
+        existing_class: Optional['Fact'] = globals().get(cls.__qualname__,
+                                                         None)
         if existing_class is not None:
             LOGGER.warning("%s already exists" % (cls.__qualname__))
             return existing_class
@@ -132,9 +135,9 @@ class _FactMeta_(type):
     def __prepare__(cls, clsname, bases):
         return OrderedDict()
 
-    def __new__(cls, clsname, bases, dct):
-        fields = [key for (key, val) in dct.items()
-                  if isinstance(val, FactField)]
+    def __new__(cls, clsname: str, bases: Tuple, dct: OrderedDict):
+        fields: List[str] = [key for (key, val) in dct.items()
+                             if isinstance(val, FactField)]
 
         for name in fields:
             dct[name].__set_name__(cls, name)
@@ -144,7 +147,7 @@ class _FactMeta_(type):
         # TODO FIXME find a cleaner way to get the methods of the Fact class
         # Worst case we could run this manually, and then copy the produced
         # list
-        members = clsobj._baseFields_
+        members = clsobj._baseFields_  # type: ignore
         try:
             if clsname != "Fact":
                 members.extend(
@@ -161,7 +164,7 @@ class _FactMeta_(type):
                                       "do not redefine") % (name))
 
             if dct[name].default is not Parameter.empty:
-                default = dct[name].default
+                default: Union[Parameter, Parameter.empty] = dct[name].default
             elif dct[name].required:
                 default = Parameter.empty
             else:
@@ -183,7 +186,7 @@ class _FactMeta_(type):
 
         _baseParameters_ = Parameter("kwargs", Parameter.VAR_KEYWORD)
         cls_params = req_kw_params + opt_kw_params + [_baseParameters_]
-        sig = Signature(cls_params)
+        sig: Signature = Signature(cls_params)
         setattr(clsobj, "__signature__", sig)
         setattr(clsobj, "_fields_", fields)
 
@@ -217,10 +220,10 @@ class Fact(metaclass=_FactMeta_):
 
 
     """
-    _tainted_ = False
-    _fields_ = None
+    _tainted_: bool = False
+    _fields_: List[str]
     _type_: Optional[str] = None
-    _groups_ = None
+    _groups_: Optional[Tuple[str]] = None
     # Base fields is the list of base/default keyword arguments
     # This list is meant to ensure someone creating a fact
     # doesn't try to reuse these names
@@ -236,8 +239,9 @@ class Fact(metaclass=_FactMeta_):
                     "_childObjects_",
                     "_childFacts_",
                     "_childHyps_"]
+    __signature__: Signature
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         for name in self._fields_:
             descriptor = getattr(self.__class__, name)
             descriptor.__set_instance__(self)
@@ -245,12 +249,12 @@ class Fact(metaclass=_FactMeta_):
 
         binding = self.__signature__.bind(*args, **kwargs)
 
-        arguments = dict(binding.arguments)
+        arguments: Dict = dict(binding.arguments)
         kwargs = arguments.pop('kwargs', dict())
         for (name, val) in binding.arguments.items():
             setattr(self, name, val)
 
-        self._id_ = None
+        self._id_: Optional[int] = None
         self._parentObjects_ = set()
         self._parentFacts_ = set()
         self._parentHyps_ = set()
@@ -333,105 +337,105 @@ class Fact(metaclass=_FactMeta_):
             else:
                 raise TypeError("%s is an invalid keyword argument" % (name))
 
-    def _setID(self, id):
+    def _setID(self, id: int) -> None:
         self._id_ = id
 
     @property
-    def id(self):
+    def id(self) -> Optional[int]:
         return self._id_
 
     @property
-    def parentObjects(self):
+    def parentObjects(self) -> List[int]:
         return list(self._parentObjects_)
 
-    def addParentObject(self, parent):
+    def addParentObject(self, parent: int) -> None:
         self._parentObjects_.add(parent)
 
-    def remParentObject(self, parent):
+    def remParentObject(self, parent: int) -> None:
         self._parentObjects_.discard(parent)
 
     @property
-    def parentFacts(self):
+    def parentFacts(self) -> List[int]:
         return list(self._parentFacts_)
 
-    def addParentFact(self, parent):
+    def addParentFact(self, parent: int) -> None:
         self._parentFacts_.add(parent)
 
-    def remParentFact(self, parent):
+    def remParentFact(self, parent: int) -> None:
         self._parentFacts_.discard(parent)
 
     @property
-    def parentHyps(self):
+    def parentHyps(self) -> List[int]:
         return list(self._parentHyps_)
 
-    def addParentHyp(self, parent):
+    def addParentHyp(self, parent: int) -> None:
         self._parentHyps_.add(parent)
 
-    def remParentHyp(self, parent):
+    def remParentHyp(self, parent: int) -> None:
         self._parentHyps_.discard(parent)
 
     @property
-    def childObjects(self):
+    def childObjects(self) -> List[int]:
         return list(self._childObjects_)
 
-    def addChildObject(self, child):
+    def addChildObject(self, child: int) -> None:
         self._childObjects_.add(child)
 
-    def remChildObject(self, child):
+    def remChildObject(self, child: int) -> None:
         self._childObjects_.discard(child)
 
     @property
-    def childFacts(self):
+    def childFacts(self) -> List[int]:
         return list(self._childFacts_)
 
-    def addChildFact(self, child):
+    def addChildFact(self, child: int) -> None:
         self._childFacts_.add(child)
 
-    def remChildFact(self, child):
+    def remChildFact(self, child: int) -> None:
         self._childFacts_.discard(child)
 
     @property
-    def childHyps(self):
+    def childHyps(self) -> List[int]:
         return list(self._childHyps_)
 
-    def addChildHyp(self, child):
+    def addChildHyp(self, child: int) -> None:
         self._childHyps_.add(child)
 
-    def remChildHyp(self, child):
+    def remChildHyp(self, child: int) -> None:
         self._childHyps_.discard(child)
 
     @property
-    def factType(self):
+    def factType(self) -> Optional[str]:
         return self._type_
 
     @property
-    def _type(self):
+    def _type(self) -> Optional[str]:
         return self._type_
 
     @property
-    def factGroups(self):
+    def factGroups(self) -> Optional[Tuple[str]]:
         return self._groups_
 
     @property
-    def creator(self):
+    def creator(self) -> Optional[str]:
         return self._creator_
 
     @property
-    def created(self):
+    def created(self) -> float:
         return self._created_
 
     @property
-    def tainted(self):
+    def tainted(self) -> bool:
         return self._tainted_
 
-    def _taint(self):
+    def _taint(self) -> None:
         self._tainted_ = True
 
-    def _untaint(self):
+    def _untaint(self) -> None:
         self._tainted_ = False
 
     @property
-    def _coreFacts(self):
+    def _coreFacts(self) -> Dict:
         data = {'_id_': self._id_,
                 '_creator_': self._creator_,
                 '_created_': self._created_,
@@ -440,7 +444,7 @@ class Fact(metaclass=_FactMeta_):
         return data
 
     @property
-    def _internalFacts(self):
+    def _internalFacts(self) -> Dict:
         data = {"_parentObjects_": self._parentObjects_,
                 "_parentFacts_": self._parentFacts_,
                 "_parentHyps_": self._parentHyps_,
@@ -450,7 +454,7 @@ class Fact(metaclass=_FactMeta_):
         return data
 
     @property
-    def _nonCoreFacts(self):
+    def _nonCoreFacts(self) -> Dict:
         data = dict()
         for field in self._fields_:
             try:
@@ -460,7 +464,7 @@ class Fact(metaclass=_FactMeta_):
 
         return data
 
-    def save(self):
+    def save(self) -> Dict:
         data = self._coreFacts
         data.update(self._nonCoreFacts)
         data.update(self._internalFacts)
@@ -469,12 +473,12 @@ class Fact(metaclass=_FactMeta_):
         return data
 
     @classmethod
-    def load(cls, **kwargs):
+    def load(cls, **kwargs) -> 'Fact':
         del kwargs["_class_"]
         return cls(**kwargs)
 
 
-def getFactClass(name):
+def getFactClass(name: str) -> Type['Fact']:
     """Helper method to return a fact class by name"""
     try:
         return globals().get(name, None)
@@ -482,7 +486,7 @@ def getFactClass(name):
         raise
 
 
-def loadFact(data):
+def loadFact(data) -> 'Fact':
     """Helper method to load a saved fact"""
     try:
         class_name = data['_class_']
@@ -490,15 +494,16 @@ def loadFact(data):
         raise ValueError("Unable to find expected field in save data")
 
     fact_class = getFactClass(class_name)
+
     return fact_class.load(**data)
 
 
-def loadFacts(facts_path=None):
-    paths = [os.path.dirname(os.path.abspath(__file__))]
+def loadFacts(facts_path=None) -> None:
+    paths: List[str] = [os.path.dirname(os.path.abspath(__file__))]
     if facts_path is not None:
         paths.extend(facts_path)
 
-    loaded = set()
+    loaded: Set = set()
     # Exclude Fields.py -- there's no harm/benefit in [re-]loading it
     loadExtras(paths, loaded, exclude_full=set(
         os.path.join(paths[0], 'Fields.py')))

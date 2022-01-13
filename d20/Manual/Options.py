@@ -1,9 +1,11 @@
 import datetime
 import cerberus
+from typing import Optional, Type, Tuple, Dict, Union
 
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 
-LOGGER = logging.getLogger(__name__)
+
+LOGGER: Logger = logging.getLogger(__name__)
 
 
 class _empty:
@@ -11,7 +13,7 @@ class _empty:
 
 
 class Arguments:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Tuple, **kwargs) -> None:
         self._schemaGenerator = CerberusSchemaGenerator()
 
         for arg in args:
@@ -27,8 +29,11 @@ class Arguments:
             self._schemaGenerator.schema
         )
 
-    def parse(self, arguments, common=None):
-        valid = self._validator.validate(arguments)
+    def parse(self,
+              arguments: Dict,
+              common: Optional[Dict] = None
+              ) -> Dict[str, Dict]:
+        valid: bool = self._validator.validate(arguments)
         if not valid:
             raise ValueError(
                 "Unable to verify config: %s"
@@ -42,23 +47,23 @@ class Arguments:
         return options
 
     @property
-    def docs(self):
+    def docs(self) -> Dict:
         return self._schemaGenerator._docs
 
 
 class CerberusSchemaGenerator:
-    empty = _empty
+    empty: Type[_empty] = _empty
 
-    def __init__(self):
-        self._schema = dict()
-        self._docs = dict()
+    def __init__(self) -> None:
+        self._schema: Dict[str, Dict[str, Union[str, bool]]] = dict()
+        self._docs: Dict = dict()
 
-    def python2CerberusType(self, type):
+    def python2CerberusType(self, type) -> str:
         if type == str:
             return 'string'
         elif type == int:
             return 'integer'
-        elif type in [bytes, bytearray]:
+        elif type == bytes or type == bytearray:
             return 'binary'
         elif type == datetime.date:
             return 'date'
@@ -78,8 +83,8 @@ class CerberusSchemaGenerator:
             raise TypeError("Unknown type")
 
     def add_argument(
-            self, name, type=str, help=None,
-            default=_empty, **kwargs):
+            self, name: str, type=str, help: Optional[str] = None,
+            default=_empty, **kwargs) -> None:
 
         if name in self._docs:
             raise ValueError("Argument already exists")
@@ -90,7 +95,7 @@ class CerberusSchemaGenerator:
             'help': help
         }
 
-        arg_schema = {
+        arg_schema: Dict[str, Union[str, bool]] = {
             'type': self.python2CerberusType(type),
             'nullable': True
         }
@@ -101,5 +106,5 @@ class CerberusSchemaGenerator:
         self._schema[name] = arg_schema
 
     @property
-    def schema(self):
+    def schema(self) -> Dict:
         return self._schema

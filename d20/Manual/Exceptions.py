@@ -33,10 +33,23 @@ class NotFoundError(Exception):
     """
 
 
+class RPCTimeoutError(Exception):
+    """Exception to indicate a timeout occurred when waiting
+       for a RPCResponse"""
+
+
+class ConfigNotFoundError(Exception):
+    """Exception to indicate a config file was not found in
+       the entity"""
+
+
 __all__ = ["WaitTimeoutError",
            "StreamTimeoutError",
            "PlayerCreationError",
            "DuplicateObjectError",
            "TemporaryDirectoryError",
            "ConsoleError",
-           "NotFoundError"]
+           "NotFoundError",
+           "RPCTimeoutError",
+           "ConfigNotFoundError"
+           ]

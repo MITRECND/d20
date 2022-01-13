@@ -4,25 +4,26 @@ import argparse
 import time
 import textwrap
 import yaml
-
+from typing import List, Dict, Union
 
 from d20.version import GAME_ENGINE_VERSION
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 from d20.Manual.Facts import loadFacts
 from d20.Manual.Config import Configuration
 from d20.Manual.Shell import ShellCmd
-from d20.Players import verifyPlayers
-from d20.NPCS import verifyNPCs
-from d20.BackStories import verifyBackStories
-from d20.Screens import verifyScreens
+from d20.Players import verifyPlayers, Player
+from d20.NPCS import verifyNPCs, NPC
+from d20.BackStories import verifyBackStories, BackStory
+from d20.Screens import verifyScreens, Screen
 from d20.Actions import (setupActionLoader, ACTION_INVENTORY)
 from d20.Manual.GameMaster import GameMaster
 from d20.Manual.Options import _empty
 
-LOGGER = logging.getLogger(__name__)
+
+LOGGER: 'Logger' = logging.getLogger(__name__)
 
 
-def __fix_default(value):
+def __fix_default(value) -> str:
     if isinstance(value, bool):
         return str(value).lower()
     elif isinstance(value, bytes):
@@ -31,15 +32,18 @@ def __fix_default(value):
         return str(value)
 
 
-def __generate_config_file(args, config):
-    players = verifyPlayers(args.extra_players, config)
-    npcs = verifyNPCs(args.extra_npcs, config)
-    backstories = verifyBackStories(args.extra_backstories, config)
-    screens = verifyScreens(args.extra_screens, config)
+def __generate_config_file(args: argparse.Namespace,
+                           config: Configuration) -> None:
+
+    players: List[Player] = verifyPlayers(args.extra_players, config)
+    npcs: List[NPC] = verifyNPCs(args.extra_npcs, config)
+    backstories: List[BackStory] = verifyBackStories(args.extra_backstories,
+                                                     config)
+    screens: Dict[str, Screen] = verifyScreens(args.extra_screens, config)
     # actions are handled by the setupActionLoader and inclusion in other code
 
-    TAB = "    "
-    default_config = ""
+    TAB: str = "    "
+    default_config: str = ""
 
     for (section, entities) in (
             ("Actions", ACTION_INVENTORY.values()),
@@ -49,9 +53,9 @@ def __generate_config_file(args, config):
             ("Screens", screens.values())):
 
         default_config += f"{section}:\n"
-        entity_configs = dict()
+        entity_configs: Dict[str, str] = dict()
         for entity in entities:
-            entity_config = ""
+            entity_config: str = ""
             entity_config += f"# {TAB}{entity.registration.name}:\n"
             for (name, details) in entity.registration.options.docs.items():
                 if details['help'] is not None:
@@ -75,14 +79,14 @@ def __generate_config_file(args, config):
         print(default_config)
 
 
-def __setup(args, console=False):
+def __setup(args: argparse.Namespace, console: bool = False) -> Configuration:
     logging.setupLogger(
             debug=args.debug,
             verbose=args.verbose,
             console=console
     )
 
-    Config = Configuration(configFile=args.config, args=args)
+    Config: Configuration = Configuration(configFile=args.config, args=args)
 
     if args.temporary is None:
         args.temporary = "/tmp/d20-%d" % time.time()
@@ -92,10 +96,12 @@ def __setup(args, console=False):
     return Config
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Roll the dice")
+def main() -> None:
+    parser: argparse.ArgumentParser = \
+        argparse.ArgumentParser(description="Roll the dice")
 
-    input_group = parser.add_mutually_exclusive_group()
+    input_group: argparse._MutuallyExclusiveGroup = \
+        parser.add_mutually_exclusive_group()
 
     input_group.add_argument(
         "-f", "--file", type=str, default=None,
@@ -110,7 +116,8 @@ def main():
         help=("A path to a yaml/json file with facts to "
               "present to backstories"))
 
-    information_group = parser.add_argument_group('Informational')
+    information_group: argparse._ArgumentGroup = \
+        parser.add_argument_group('Informational')
 
     information_group.add_argument(
         "-l", "--list-players", action="store_true",
@@ -191,18 +198,18 @@ def main():
         dest="generate_config_file", metavar="CONFIG_FILE_PATH",
         help="Walk entities and generate a default configuration file")
 
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
 
     if args.version:
         print("d20: Engine %s" % (GAME_ENGINE_VERSION))
         sys.exit(0)
 
-    Config = __setup(args, console=True)
+    Config: Configuration = __setup(args, console=True)
 
     if args.list_players:
         print("Registered Players:")
-        players = verifyPlayers(args.extra_players,
-                                Config)
+        players: List["Player"] = verifyPlayers(args.extra_players,
+                                                Config)
         if len(players) == 0:
             print("\tNo Players :(")
         else:
@@ -212,7 +219,7 @@ def main():
 
     if args.list_npcs:
         print("Registered NPCs:")
-        npcs = verifyNPCs(args.extra_npcs, Config)
+        npcs: List[NPC] = verifyNPCs(args.extra_npcs, Config)
         if len(npcs) == 0:
             print("\tNo NPCs")
         else:
@@ -222,18 +229,20 @@ def main():
 
     if args.list_backstories:
         print("Registered BackStories:")
-        backstories = verifyBackStories(args.extra_backstories, Config)
+        backstories: List[BackStory] = verifyBackStories(
+                                            args.extra_backstories,
+                                            Config)
         if len(backstories) == 0:
             print("\tNo BackStories")
         else:
-            for npc in backstories:
-                print("\t%s" % (npc.name))
+            for backstory in backstories:
+                print("\t%s" % (backstory.name))
         sys.exit(0)
 
     if args.list_screens:
         print("Installed Screens:")
-        screens = verifyScreens(args.extra_screens,
-                                Config)
+        screens: Dict[str, Screen] = verifyScreens(args.extra_screens,
+                                                   Config)
         if len(screens) == 0:
             print("\tNo Screens")
         else:
@@ -252,15 +261,19 @@ def main():
                 print("\tGame Engine: %s"
                       % (player.registration.engine_version))
 
-                desc_lines = textwrap.wrap(player.registration.description,
-                                           width=50)
-                if len(desc_lines) > 1:
-                    prefix = "\t%13s" % (' ')
-                    print("\tDescription: %s" % (desc_lines.pop(0)))
-                    print(prefix + (prefix.join(desc_lines)))
+                if player.registration.description is not None:
+                    desc_lines: List[str] = \
+                        textwrap.wrap(player.registration.description,
+                                      width=50)
+                    if len(desc_lines) > 1:
+                        prefix: str = "\t%13s" % (' ')
+                        print("\tDescription: %s" % (desc_lines.pop(0)))
+                        print(prefix + (prefix.join(desc_lines)))
+                    else:
+                        print("\tDescription: %s"
+                              % (player.registration.description))
                 else:
-                    print("\tDescription: %s"
-                          % (player.registration.description))
+                    print("Missing player description")
                 # print("\tInterests:")
                 # for ft in sorted(list(player.registration.interests)):
                 #     print("\t\t%s" % (str(ft)))
@@ -274,9 +287,10 @@ def main():
                             list(player.registration.facts_generated)):
                         print("\t\t%s" % (str(fg)))
                 if isinstance(player.registration.help, str):
-                    help_lines = textwrap.wrap(player.registration.help,
-                                               width=60)
-                    help_msg = "\n\t\t".join(help_lines)
+                    help_lines: List[str] = textwrap.wrap(
+                                                player.registration.help,
+                                                width=60)
+                    help_msg: str = "\n\t\t".join(help_lines)
                     print("\n\tHelp:\n\t\t%s" % (help_msg))
 
         sys.exit(0)
@@ -285,7 +299,7 @@ def main():
         __generate_config_file(args, Config)
         sys.exit(0)
 
-    exclude_arguments = [
+    exclude_arguments: List[str] = [
         "list_players",
         "list_screens",
         "list_backstories",
@@ -295,7 +309,7 @@ def main():
         "generate_config_file"
     ]
 
-    arguments = vars(args)
+    arguments: Dict = vars(args)
     arguments.update({
         "_config": Config,
         "printable": True
@@ -312,7 +326,8 @@ def main():
         sys.exit(1)
 
 
-def play(**kwargs):
+# Return type depends on screen
+def play(**kwargs: Union[str, List[str], bool]):
     """play the game
 
     This method allows one to call d20 from another python program returning
@@ -375,7 +390,7 @@ def play(**kwargs):
 
     """
 
-    args = argparse.Namespace()
+    args: argparse.Namespace = argparse.Namespace()
 
     # The following are the recognized keyword arguments
     args.disable_async = False
@@ -404,7 +419,7 @@ def play(**kwargs):
     # Internally used arguments
     args._config = None
 
-    string_args = [
+    string_args: List[str] = [
         'file',
         'backstory_facts',
         'backstory_facts_path',
@@ -415,7 +430,7 @@ def play(**kwargs):
         'save_file',
         'load_file']
 
-    list_args = [
+    list_args: List[str] = [
         'extra_players',
         'extra_npcs',
         'extra_backstories',
@@ -423,14 +438,14 @@ def play(**kwargs):
         'extra_facts',
         'extra_screens']
 
-    bool_args = [
+    bool_args: List[str] = [
         'disable_async',
         'debug',
         'verbose',
         'printable'
     ]
 
-    int_args = [
+    int_args: List[str] = [
         'graceTime',
         'maxGameTime',
         'maxTurnTime'
@@ -463,7 +478,7 @@ def play(**kwargs):
         raise ValueError("File/BackStory Facts or Save State required")
 
     if args._config is not None:
-        Config = args._config
+        Config: Configuration = args._config
     else:
         Config = __setup(args)
 
@@ -473,13 +488,13 @@ def play(**kwargs):
             save_state = yaml.load(f.read(), Loader=yaml.FullLoader)
 
     try:
-        gm = GameMaster(extra_players=args.extra_players,
-                        extra_npcs=args.extra_npcs,
-                        extra_backstories=args.extra_backstories,
-                        extra_screens=args.extra_screens,
-                        config=Config,
-                        options=args,
-                        save_state=save_state)
+        gm: GameMaster = GameMaster(extra_players=args.extra_players,
+                                    extra_npcs=args.extra_npcs,
+                                    extra_backstories=args.extra_backstories,
+                                    extra_screens=args.extra_screens,
+                                    config=Config,
+                                    options=args,
+                                    save_state=save_state)
     except Exception:
         raise RuntimeError("Unable to init the GM")
 
@@ -514,9 +529,10 @@ def play(**kwargs):
         os.makedirs(args.dump_objects, exist_ok=True)
 
         for obj in gm.objects:
-            filename = obj.metadata.get('filename', 'nofilename')
-            creator = obj._creator_
-            outname = "%d-%s-%s-%s" % (obj.id, creator, obj.hash, filename)
+            filename: str = obj.metadata.get('filename', 'nofilename')
+            creator: str = obj._creator_
+            outname: str = "%d-%s-%s-%s" % (obj.id, creator, obj.hash,
+                                            filename)
             with open(os.path.join(args.dump_objects, outname), 'wb') as f:
                 f.write(obj.data)
 
@@ -525,8 +541,9 @@ def play(**kwargs):
     return results
 
 
-def shellmain():
-    parser = argparse.ArgumentParser(description="d20 Interactive Console")
+def shellmain() -> None:
+    parser: argparse.ArgumentParser = \
+        argparse.ArgumentParser(description="d20 Interactive Console")
     parser.add_argument("statefile", action="store",
                         help="Location/file to restore state")
     parser.add_argument("-c", "--config", type=str, default=None,
@@ -555,7 +572,7 @@ def shellmain():
     parser.add_argument('-v', '--verbose', action="store_true", default=False,
                         dest="verbose", help="Enable verbose output")
 
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
 
     logging.setupLogger(
             debug=args.debug,
@@ -563,7 +580,7 @@ def shellmain():
             console=True
     )
 
-    Config = Configuration(configFile=args.config, args=args)
+    Config: Configuration = Configuration(configFile=args.config, args=args)
 
     setupActionLoader(args.extra_actions, Config)
     loadFacts(args.extra_facts)
@@ -573,17 +590,21 @@ def shellmain():
         save_state = yaml.load(f.read(), Loader=yaml.FullLoader)
 
     try:
-        gm = GameMaster(extra_players=args.extra_players,
-                        extra_npcs=args.extra_npcs,
-                        extra_backstories=args.extra_backstories,
-                        config=Config,
-                        options=args,
-                        save_state=save_state)
+        gm: GameMaster = GameMaster(extra_players=args.extra_players,
+                                    extra_npcs=args.extra_npcs,
+                                    extra_backstories=args.extra_backstories,
+                                    config=Config,
+                                    options=args,
+                                    save_state=save_state)
     except Exception:
         LOGGER.exception("Unable to init the GM")
         sys.exit(1)
 
     print("Loading GM ...")
     gm.load()
-    shell = ShellCmd(gm)
+    shell: ShellCmd = ShellCmd(gm)
     shell.run()
+
+
+if __name__ == "__main__":
+    main()

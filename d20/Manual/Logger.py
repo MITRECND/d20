@@ -1,26 +1,27 @@
 import logging as origLogging
 import sys
+from typing import Optional, Set
 
-from typing import Set
 
-default_log_format = "%(message)s"
-debug_log_format = ('%(levelname) -10s %(asctime)s %(name) '
-                    '-30s %(funcName) -35s %(lineno) -5d: %(message)s')
+default_log_format: str = "%(message)s"
+debug_log_format: str = ('%(levelname) -10s %(asctime)s %(name) '
+                         '-30s %(funcName) -35s %(lineno) -5d: %(message)s')
 
-DEFAULT_LEVEL = origLogging.INFO
-SUPPRESS_LEVEL = origLogging.ERROR
+DEFAULT_LEVEL: int = origLogging.INFO
+SUPPRESS_LEVEL: int = origLogging.ERROR
+Logger = origLogging.Logger
 
 
 class logging:
-    ENABLE_DEBUG = False
-    ENABLE_VERBOSE = False
+    ENABLE_DEBUG: bool = False
+    ENABLE_VERBOSE: bool = False
     LOGGERS: Set[origLogging.Logger] = set()
 
     @staticmethod
     def setupLogger(
-            debug=False,
-            verbose=False,
-            console=False):
+            debug: bool = False,
+            verbose: bool = False,
+            console: bool = False) -> None:
         """Setup origLogging infrastructure
 
             This function sets up the logger based on the args, changing
@@ -33,11 +34,12 @@ class logging:
         # Setup logging to stdout
         if console:
             try:
-                logHandler = origLogging.StreamHandler(sys.stdout)
+                logHandler: origLogging.StreamHandler \
+                     = origLogging.StreamHandler(sys.stdout)
             except Exception as e:
                 raise Exception(("Unable to setup logger to stdout\n"
                                 "Error Message: %s\n" % str(e)))
-            logFormatter = origLogging.Formatter(
+            logFormatter: origLogging.Formatter = origLogging.Formatter(
                 debug_log_format
                 if logging.ENABLE_DEBUG
                 else default_log_format
@@ -45,7 +47,7 @@ class logging:
             logHandler.setFormatter(logFormatter)
 
             # Set defaults for all loggers
-            root_logger = origLogging.getLogger()
+            root_logger: origLogging.Logger = origLogging.getLogger()
             root_logger.handlers = []
             root_logger.addHandler(logHandler)
             if logging.ENABLE_DEBUG or logging.ENABLE_VERBOSE:
@@ -58,7 +60,7 @@ class logging:
             logging.setLoggerLevel(logger)
 
     @staticmethod
-    def setLoggerLevel(logger):
+    def setLoggerLevel(logger: origLogging.Logger) -> None:
         if logging.ENABLE_DEBUG:
             logger.setLevel(origLogging.DEBUG)
         elif logging.ENABLE_VERBOSE:
@@ -67,8 +69,8 @@ class logging:
             logger.setLevel(SUPPRESS_LEVEL)
 
     @staticmethod
-    def getLogger(name=None):
-        logger = origLogging.getLogger(name)
+    def getLogger(name: Optional[str] = None) -> origLogging.Logger:
+        logger: origLogging.Logger = origLogging.getLogger(name)
         if logger.name.startswith('d20'):
             logging.setLoggerLevel(logger)
             logging.LOGGERS.add(logger)

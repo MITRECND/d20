@@ -1,19 +1,26 @@
-import os
 import copy
 import base64
-import time
 import hashlib
+import time
 import threading
+import os
 import pathlib
 import re
+import sys
+from io import BytesIO
+from typing import (Dict, ItemsView, Iterator, List,
+                    Match, Optional, Set, Type,
+                    TypeVar, Union, ValuesView)
 
-from d20.Manual.Exceptions import (DuplicateObjectError)
-from d20.Manual.Facts import (RegisteredFacts, loadFact)
-
+from d20.Manual.Exceptions import (DuplicateObjectError, NotFoundError)
+from d20.Manual.Facts import (Fact, loadFact, RegisteredFacts)
 from d20.Manual.Temporary import (
     TemporaryObjectOnDisk,
     TemporaryObjectStream
 )
+
+
+FactType = TypeVar('FactType', bound='FactTable')
 
 # Fact and Hypothesis 'table' is organized using a python dict
 # The dict pairs up a fact type from the RegisteredFacts
@@ -28,31 +35,31 @@ class TableColumn(object):
         This class uses a list to store the rows of a given column
     """
 
-    def __init__(self, type, **kwargs):
-        self._table_type = type
-        self.column = list()
+    def __init__(self, type: str, **kwargs) -> None:
+        self._table_type: str = type
+        self.column: List[Fact] = list()
 
-    def append(self, fact):
+    def append(self, fact: Fact) -> None:
         if fact._type != self._table_type:
             raise ValueError("Cannot add fact to column of different type")
         self.column.append(fact)
 
-    def remove(self, fact):
+    def remove(self, fact: Fact) -> None:
         self.column.remove(fact)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Fact]:
         return self.column.__iter__()
 
-    def index(self, *args, **kwargs):
-        return self.column.index(*args, **kwargs)
+    def index(self, value, start=0, stop=sys.maxsize) -> int:
+        return self.column.index(value, start, stop)
 
     def __getitem__(self, *args, **kwargs):
         return self.column.__getitem__(*args, **kwargs)
 
-    def tolist(self):
+    def tolist(self) -> List[Fact]:
         return copy.copy(self.column)
 
-    def save(self):
+    def save(self) -> Dict:
         data = {
             'type': self._table_type,
             'column': [item.save() for item in self.column]
@@ -66,34 +73,34 @@ class FactTable(object):
         This class is the master fact table of all facts for a given run
         and consists of multiple TableColumns, each column of a given fact type
     """
-    _tainted_ = False
+    _tainted_: bool = False
 
-    def __init__(self):
-        self._ids = 0
-        self._columns = dict()
-        self._byId = dict()
+    def __init__(self, *args, **kwargs) -> None:
+        self._ids: int = 0
+        self._columns: Dict = dict()
+        self._byId: Dict = dict()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         return self._columns.__iter__()
 
-    def items(self):
+    def items(self) -> ItemsView:
         return self._columns.items()
 
-    def columns(self):
+    def columns(self) -> ValuesView:
         return self._columns.values()
 
     @property
-    def tainted(self):
+    def tainted(self) -> bool:
         return self._tainted_
 
-    def findById(self, id):
+    def findById(self, id: int) -> Optional[Fact]:
         """Return an item instance by a given id"""
         if id in self._byId.keys():
             return self._byId[id]
         else:
             return None
 
-    def add(self, item, id=None):
+    def add(self, item: Fact, id: Optional[int] = None) -> int:
         """Add an item to the table
 
             This function adds an item to the table. If an id is not provided,
@@ -103,6 +110,8 @@ class FactTable(object):
         if item.tainted != self.tainted:
             raise TypeError(("Attempt to add tainted/untainted item to "
                              "wrong table"))
+        if item._type is None:
+            raise TypeError(("Item was not created correctly - missing type"))
 
         self.addColumn(item._type)
         if id is None:
@@ -114,7 +123,7 @@ class FactTable(object):
 
         return id
 
-    def addColumn(self, _type):
+    def addColumn(self, _type: str) -> None:
         """Adds a TableColumn of the given type if not present"""
         if _type not in RegisteredFacts:
             raise ValueError("Unrecognized type")
@@ -122,7 +131,7 @@ class FactTable(object):
         if _type not in self._columns.keys():
             self._columns[_type] = TableColumn(_type)
 
-    def getColumn(self, _type):
+    def getColumn(self, _type: str) -> Optional[TableColumn]:
         """Returns a TableColumn of the given type"""
         if _type not in RegisteredFacts:
             raise ValueError("Unrecognized type")
@@ -132,7 +141,7 @@ class FactTable(object):
         else:
             return self._columns[_type]
 
-    def hasColumn(self, _type):
+    def hasColumn(self, _type: str) -> bool:
         """Returns a boolean whether a TableColumn for the given type exists"""
         if _type not in RegisteredFacts:
             raise ValueError("Unrecognized type")
@@ -142,7 +151,7 @@ class FactTable(object):
 
         return False
 
-    def save(self):
+    def save(self) -> Dict:
         data = {
             'ids': self._ids,
             'columns': {
@@ -153,7 +162,7 @@ class FactTable(object):
         return data
 
     @classmethod
-    def load(cls, data):
+    def load(cls: Type[FactType], data: Dict) -> FactType:
         ft = cls()
         ft._ids = data['ids']
         for (_type, column) in data['columns'].items():
@@ -164,13 +173,15 @@ class FactTable(object):
 
 
 class HypothesisTable(FactTable):
-    _tainted_ = True
+    _tainted_: bool = True
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def remove(self, hyp_id):
-        item = self.findById(hyp_id)
+    def remove(self, hyp_id: int) -> Fact:
+        item: Optional[Fact] = self.findById(hyp_id)
+        if item is None:
+            raise NotFoundError("No hyp by that id")
         del self._byId[hyp_id]
         self._columns[item._type].remove(item)
         return item
@@ -199,22 +210,22 @@ class FileObject(object):
     # Windows paths
     isWindowsRegex = re.compile(r'^[a-zA-Z]:\\')
 
-    def __init__(self, data, id, **kwargs):
-        self._id = id
-        self._data = data
-        self._size = None
-        self._metadata = dict()
-        self._creator_ = None
-        self._created_ = time.time()
-        self._ondisk_ = None
-        self._stream_ = None
-        self._encoding = 'utf-8'
-        self._parentObjects_ = set()
-        self._parentFacts_ = set()
-        self._parentHyps_ = set()
-        self._childObjects_ = set()
-        self._childFacts_ = set()
-        self._childHyps_ = set()
+    def __init__(self, data: Union[bytes, bytearray, str], id: int, **kwargs):
+        self._id: int = id
+        self._data: Union[bytes, bytearray, str] = data
+        self._size: Optional[int] = None
+        self._metadata: Dict = dict()
+        self._creator_: Optional[str] = None
+        self._created_: float = time.time()
+        self._ondisk_: Optional[TemporaryObjectOnDisk] = None
+        self._stream_: Optional[TemporaryObjectStream] = None
+        self._encoding: str = 'utf-8'
+        self._parentObjects_: Set[int] = set()
+        self._parentFacts_: Set[int] = set()
+        self._parentHyps_: Set[int] = set()
+        self._childObjects_: Set[int] = set()
+        self._childFacts_: Set[int] = set()
+        self._childHyps_: Set[int] = set()
 
         for (name, value) in kwargs.items():
             if name == '_metadata_':
@@ -310,74 +321,75 @@ class FileObject(object):
         self._size = len(self._data)
 
     @property
-    def id(self):
+    def id(self) -> int:
         return self._id
 
     @property
-    def parentObjects(self):
+    def parentObjects(self) -> List[int]:
         return list(self._parentObjects_)
 
-    def addParentObject(self, parent):
+    def addParentObject(self, parent: int) -> None:
         self._parentObjects_.add(parent)
 
-    def remParentObject(self, parent):
+    def remParentObject(self, parent: int) -> None:
         self._parentObjects_.discard(parent)
 
     @property
-    def parentFacts(self):
+    def parentFacts(self) -> List[int]:
         return list(self._parentFacts_)
 
-    def addParentFact(self, parent):
+    def addParentFact(self, parent: int) -> None:
         self._parentFacts_.add(parent)
 
-    def remParentFact(self, parent):
+    def remParentFact(self, parent: int) -> None:
         self._parentFacts_.discard(parent)
 
     @property
-    def parentHyps(self):
+    def parentHyps(self) -> List[int]:
         return list(self._parentHyps_)
 
-    def addParentHyp(self, parent):
+    def addParentHyp(self, parent: int) -> None:
         self._parentHyps_.add(parent)
 
-    def remParentHyp(self, parent):
+    def remParentHyp(self, parent: int) -> None:
         self._parentHyps_.discard(parent)
 
     @property
-    def childObjects(self):
+    def childObjects(self) -> List[int]:
         return list(self._childObjects_)
 
-    def addChildObject(self, child):
+    def addChildObject(self, child: int) -> None:
         self._childObjects_.add(child)
 
-    def remChildObject(self, child):
+    def remChildObject(self, child: int) -> None:
         self._childObjects_.discard(child)
 
     @property
-    def childFacts(self):
+    def childFacts(self) -> List[int]:
         return list(self._childFacts_)
 
-    def addChildFact(self, child):
+    def addChildFact(self, child: int) -> None:
         self._childFacts_.add(child)
 
-    def remChildFact(self, child):
+    def remChildFact(self, child: int) -> None:
         self._childFacts_.discard(child)
 
     @property
-    def childHyps(self):
+    def childHyps(self) -> List[int]:
         return list(self._childHyps_)
 
-    def addChildHyp(self, child):
+    def addChildHyp(self, child: int) -> None:
         self._childHyps_.add(child)
 
-    def remChildHyp(self, child):
+    def remChildHyp(self, child: int) -> None:
         self._childHyps_.discard(child)
 
-    def __addMetadataFilename(self, filename):
-        isWindows = self.isWindowsRegex.match(filename)
+    def __addMetadataFilename(self, filename: str):
+        isWindows: Optional[Match[str]] = self.isWindowsRegex.match(filename)
         try:
             if isWindows:
-                path = pathlib.PureWindowsPath(filename)
+                path: Union[pathlib.PureWindowsPath, pathlib.PurePosixPath] = \
+                    pathlib.PureWindowsPath(filename)
             else:
                 path = pathlib.PurePosixPath(filename)
 
@@ -387,11 +399,11 @@ class FileObject(object):
             self._metadata['filename'] = filename
 
     @property
-    def metadata(self):
+    def metadata(self) -> Dict:
         """Returns a copy of the objects metadata"""
         return copy.deepcopy(self._metadata)
 
-    def add_metadata(self, key, value):
+    def add_metadata(self, key: str, value: str) -> None:
         """Setter function to add metadata to object"""
         if key == 'filename':
             self.__addMetadataFilename(value)
@@ -399,39 +411,39 @@ class FileObject(object):
             self._metadata[key] = value
 
     @property
-    def hash(self):
+    def hash(self) -> str:
         return self._hash
 
     @property
-    def size(self):
-        return self._size
+    def size(self) -> int:
+        return self._size  # type: ignore
 
     @property
-    def data(self):
-        return self._data
+    def data(self) -> bytes:
+        return self._data  # type: ignore
 
     @property
-    def onDisk(self):
+    def onDisk(self) -> str:
         """Function to return object on file system"""
         if self._ondisk_ is None:
             self._ondisk_ = TemporaryObjectOnDisk(self._id, self._data)
         return self._ondisk_.path
 
     @property
-    def stream(self):
+    def stream(self) -> BytesIO:
         """Function to return object as a data stream"""
-        if self._stream_ is None:
+        if isinstance(self._data, bytes) and self._stream_ is None:
             self._stream_ = TemporaryObjectStream(self._id, self._data)
-        return self._stream_.stream
+        return self._stream_.stream  # type: ignore
 
     @property
-    def _creationInfo(self):
+    def _creationInfo(self) -> Dict:
         data = {'_creator_': self._creator_, '_created_': self._created_}
 
         return data
 
     @property
-    def _internalInfo(self):
+    def _internalInfo(self) -> Dict:
         data = {
             "_parentObjects_": self._parentObjects_,
             "_parentFacts_": self._parentFacts_,
@@ -444,25 +456,27 @@ class FileObject(object):
         return data
 
     @property
-    def _coreInfo(self):
-        data = {
-            'id': self._id,
-            'metadata': self._metadata,
-            'hash': self._hash,
-            'size': self._size,
-            'data': base64.b64encode(self._data).decode("utf-8")
-        }
+    def _coreInfo(self) -> Dict:
+        data = {}
+        if isinstance(self._data, bytes):
+            data = {
+                'id': self._id,
+                'metadata': self._metadata,
+                'hash': self._hash,
+                'size': self._size,
+                'data': base64.b64encode(self._data).decode("utf-8")
+            }
 
         return data
 
-    def save(self):
+    def save(self) -> Dict:
         data = self._creationInfo
         data.update(self._coreInfo)
         data.update(self._internalInfo)
         return data
 
     @staticmethod
-    def load(data):
+    def load(data) -> 'FileObject':
         data['data'] = base64.b64decode(data['data'])
         return FileObject(**data)
 
@@ -477,10 +491,10 @@ class ObjectList(object):
     """
 
     def __init__(self, *args, **kwargs):
-        self.objects = list()
-        self.__tmpbase_ = None
-        self.__hashes_ = dict()
-        self.object_lock = threading.Lock()
+        self.objects: List[FileObject] = list()
+        self.__tmpbase_: Optional[str] = None
+        self.__hashes_: Dict = dict()
+        self.object_lock: threading.Lock = threading.Lock()
 
         for (name, value) in kwargs.items():
             if name == 'temporary':
@@ -490,25 +504,28 @@ class ObjectList(object):
                 and not os.path.exists(self.__tmpbase_)):
             os.path.mkdirs(self.__tmpbase_)
 
-    def getObjectByData(self, data):
-        hsh = hashlib.sha256(data).hexdigest()
+    def getObjectByData(self, data: bytes) -> Optional[FileObject]:
+        hsh: str = hashlib.sha256(data).hexdigest()
         return self.getObjectByHash(hsh)
 
-    def getObjectByHash(self, hsh):
+    def getObjectByHash(self, hsh: str) -> Optional[FileObject]:
         try:
             return self.__getitem__(self.__hashes_[hsh])
         except Exception:
             return None
 
-    def addObject(self, data, **kwargs):
+    def addObject(self,
+                  data: Union[bytes, bytearray, str],
+                  **kwargs
+                  ) -> FileObject:
         with self.object_lock:
-            id = len(self.objects)
-            obj = FileObject(data, id, **kwargs)
+            id: int = len(self.objects)
+            obj: FileObject = FileObject(data, id, **kwargs)
             self.append(obj)
 
         return obj
 
-    def append(self, file_object):
+    def append(self, file_object: FileObject) -> None:
         if not isinstance(file_object, FileObject):
             raise TypeError("Expected 'FileObject' type")
 
@@ -518,14 +535,14 @@ class ObjectList(object):
         self.__hashes_[file_object.hash] = file_object.id
         self.objects.append(file_object)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int) -> FileObject:
         return self.objects.__getitem__(key)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         return self.objects.__iter__()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.objects.__len__()
 
-    def tolist(self):
+    def tolist(self) -> List[FileObject]:
         return copy.copy(self.objects)

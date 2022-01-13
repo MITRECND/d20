@@ -7,25 +7,28 @@ import yaml
 import os.path
 from builtins import input
 from texttable import Texttable
+from typing import Optional, Dict, OrderedDict, Tuple, Union, List
 
 from d20.Manual.Exceptions import NotFoundError
 from d20.Manual.Facts import Fact
 from d20.Manual.Facts.Fields import (SimpleField,
                                      NumericalField,
                                      StrOrBytesField)
-from d20.Manual.BattleMap import FileObject
+from d20.Manual.BattleMap import FactTable, FileObject
+from d20.Manual.GameMaster import GameMaster
 
 
-def tsTodt(input):
+def tsTodt(input: float) -> str:
     dt = datetime.datetime.utcfromtimestamp(input).\
         strftime('%Y-%m-%d %H:%M:%S.%f UTC')
     return dt
 
 
-def prettyTable(rows, maxChars=250, debug=False):
+def prettyTable(rows: List, maxChars: int = 250,
+                debug: bool = False) -> str:
     headers = rows[0]._fields
 
-    table = Texttable()
+    table: Texttable = Texttable()
     table.set_deco(Texttable.HEADER | Texttable.VLINES)
     table.set_max_width(maxChars)
     table.header(headers)
@@ -36,18 +39,18 @@ def prettyTable(rows, maxChars=250, debug=False):
     return table.draw()
 
 
-def prettyList(data, debug=False):
+def prettyList(data: Dict, debug: bool = False) -> str:
     """Function which takes a dict and prints out data into a prettyish table
     """
     if len(data) == 0:
         return "None"
 
-    table = ""
-    hwidth = len(max(list(data.keys()), key=lambda x: len(x)))
+    table: str = ""
+    hwidth: int = len(max(list(data.keys()), key=lambda x: len(x)))
     if debug:
         print(hwidth)
     for key, value in list(data.items()):
-        filler = len(key) - hwidth
+        filler: int = len(key) - hwidth
         if (isinstance(
                 value,
                 collections.Iterable) and not isinstance(value, str)):
@@ -60,7 +63,7 @@ def prettyList(data, debug=False):
     return table
 
 
-def askPrompt(prompt="Are you sure?"):
+def askPrompt(prompt: str = "Are you sure?") -> bool:
     while 1:
         resp = input("%s (y/n) " % (prompt))
         if resp.lower() in ['y', 'yes']:
@@ -71,17 +74,18 @@ def askPrompt(prompt="Are you sure?"):
             print("Invalid Response")
 
 
-def listObjects(gm):
-    objectMetadata = collections.namedtuple('objectMetadata',
-                                            ['id',
-                                             'creator',
-                                             'created',
-                                             'filename'])
-    rows = []
+def listObjects(gm: GameMaster) -> str:
+    objectMetadata: Tuple = collections.namedtuple('objectMetadata',
+                                                   ['id',
+                                                    'creator',
+                                                    'created',
+                                                    'filename'])
+    rows: List[Tuple] = []
     for obj in gm.objects:
-        created = tsTodt(obj._created_)
-        filename = obj.metadata.get('filename', '')
-        md = objectMetadata(str(obj.id), obj._creator_, created, filename)
+        created: str = tsTodt(obj._created_)
+        filename: str = obj.metadata.get('filename', '')
+        md: Tuple = objectMetadata(str(obj.id), obj._creator_, created,
+                                   filename)
         rows.append(md)
 
     if len(rows) > 0:
@@ -91,18 +95,18 @@ def listObjects(gm):
         return "No objects found\n"
 
 
-def listFacts(gm):
-    factMetadata = collections.namedtuple('factMetadata',
-                                          ['id',
-                                           'type',
-                                           'creator',
-                                           'created'])
-    rows = []
+def listFacts(gm: GameMaster) -> str:
+    factMetadata: Tuple = collections.namedtuple('factMetadata',
+                                                 ['id',
+                                                  'type',
+                                                  'creator',
+                                                  'created'])
+    rows: List[Tuple] = []
     for (factType, factColumn) in gm.facts.items():
         for fact in factColumn:
-            created = tsTodt(fact.created)
-            md = factMetadata(str(fact.id), factType,
-                              fact.creator, created)
+            created: str = tsTodt(fact.created)
+            md: Tuple = factMetadata(str(fact.id), factType,
+                                     fact.creator, created)
             rows.append(md)
 
     if len(rows) > 0:
@@ -112,18 +116,18 @@ def listFacts(gm):
         return "No facts found\n"
 
 
-def listHyps(gm):
-    hypMetadata = collections.namedtuple('hypMetadata',
-                                         ['id',
-                                          'type',
-                                          'creator',
-                                          'created'])
-    rows = []
+def listHyps(gm: GameMaster) -> str:
+    hypMetadata: Tuple = collections.namedtuple('hypMetadata',
+                                                ['id',
+                                                 'type',
+                                                 'creator',
+                                                 'created'])
+    rows: List[Tuple] = []
     for (hypType, hypColumn) in gm.hyps.items():
         for hyp in hypColumn:
-            created = tsTodt(hyp.created)
-            md = hypMetadata(str(hyp.id), hypType,
-                             hyp.creator, created)
+            created: str = tsTodt(hyp.created)
+            md: Tuple = hypMetadata(str(hyp.id), hypType,
+                                    hyp.creator, created)
             rows.append(md)
 
     if len(rows) > 0:
@@ -133,18 +137,20 @@ def listHyps(gm):
         return "No hyps found\n"
 
 
-def createObjectsList(typ, gm, source):
-    objectMetadata = collections.namedtuple('objectMetadata',
-                                            ['id',
-                                             'creator',
-                                             'created',
-                                             'filename'])
-    rows = []
+def createObjectsList(typ: str, gm: GameMaster,
+                      source: Union[Fact, FileObject]) -> str:
+    objectMetadata: Tuple = collections.namedtuple('objectMetadata',
+                                                   ['id',
+                                                    'creator',
+                                                    'created',
+                                                    'filename'])
+    rows: List[Tuple] = []
     for objid in getattr(source, '%sObjects' % (typ)):
-        obj = gm.objects[objid]
-        created = tsTodt(obj._created_)
-        filename = obj.metadata.get('filename', '')
-        md = objectMetadata(str(obj.id), obj._creator_, created, filename)
+        obj: FileObject = gm.objects[objid]
+        created: str = tsTodt(obj._created_)
+        filename: str = obj.metadata.get('filename', '')
+        md: Tuple = objectMetadata(str(obj.id), obj._creator_, created,
+                                   filename)
         rows.append(md)
 
     if len(rows) > 0:
@@ -153,19 +159,20 @@ def createObjectsList(typ, gm, source):
         return "None\n"
 
 
-def createFactsList(typ, gm, source):
-    factMetadata = collections.namedtuple('factMetadata',
-                                          ['id',
-                                           'type',
-                                           'creator',
-                                           'created'])
-    rows = []
+def createFactsList(typ: str, gm: GameMaster,
+                    source: Union[Fact, FileObject]) -> str:
+    factMetadata: Tuple = collections.namedtuple('factMetadata',
+                                                 ['id',
+                                                  'type',
+                                                  'creator',
+                                                  'created'])
+    rows: List[Tuple] = []
     for (factType, factColumn) in gm.facts.items():
         for fact in factColumn:
             if fact.id in getattr(source, '%sFacts' % (typ)):
-                created = tsTodt(fact.created)
-                md = factMetadata(str(fact.id), factType,
-                                  fact.creator, created)
+                created: str = tsTodt(fact.created)
+                md: Tuple = factMetadata(str(fact.id), factType,
+                                         fact.creator, created)
                 rows.append(md)
 
     if len(rows) > 0:
@@ -174,19 +181,20 @@ def createFactsList(typ, gm, source):
         return "None\n"
 
 
-def createHypsList(typ, gm, source):
-    hypMetadata = collections.namedtuple('hypMetadata',
-                                         ['id',
-                                          'type',
-                                          'creator',
-                                          'created'])
-    rows = []
+def createHypsList(typ: str, gm: GameMaster,
+                   source: Union[Fact, FileObject]) -> str:
+    hypMetadata: Tuple = collections.namedtuple('hypMetadata',
+                                                ['id',
+                                                 'type',
+                                                 'creator',
+                                                 'created'])
+    rows: List[Tuple] = []
     for (hypType, hypColumn) in gm.hyps.items():
         for hyp in hypColumn:
             if hyp.id in getattr(source, '%sHyps' % (typ)):
-                created = tsTodt(hyp.created)
-                md = hypMetadata(str(hyp.id), hypType,
-                                 hyp.creator, created)
+                created: str = tsTodt(hyp.created)
+                md: Tuple = hypMetadata(str(hyp.id), hypType,
+                                        hyp.creator, created)
                 rows.append(md)
 
     if len(rows) > 0:
@@ -196,34 +204,38 @@ def createHypsList(typ, gm, source):
 
 
 class BaseCmd(cmd.Cmd):
-    def __init__(self, gameMaster, depthList=None):
+    def __init__(self, gameMaster: GameMaster,
+                 depthList: Optional[List] = None):
         super().__init__()
-        self.gm = gameMaster
+        self.gm: GameMaster = gameMaster
         if depthList is None:
             self.depthList = []
         else:
             self.depthList = depthList
 
-        self.backTo = False
+        self.backTo: Union[bool, int] = False
 
-    def precmd(self, line):
+    def precmd(self, line: str) -> str:
         if line == 'EOF':
             self.do_exit('')
 
         return line
 
-    def do_exit(self, arg):
+    def do_exit(self, arg) -> None:
         """Exit the shell"""
         sys.stdout.write('\n')
         exit(0)
 
-    def do_save(self, arg):
+    def do_save(self, arg: Optional[str]) -> None:
         """Save the state"""
 
         if arg:
-            filename = arg
-        else:
+            filename: str = arg
+        elif self.gm.options:
             filename = self.gm.options.statefile
+        else:
+            sys.stdout.write("No save path was found\n")
+            return
 
         if os.path.exists(filename) and not os.path.isfile(filename):
             sys.stdout.write("%s exists but is not a file\n" % (filename))
@@ -236,18 +248,18 @@ class BaseCmd(cmd.Cmd):
 
         sys.stdout.write("Saving to %s ... " % (filename))
         sys.stdout.flush()
-        save_state = self.gm.save()
+        save_state: Dict = self.gm.save()
         with open(filename, 'w') as f:
             f.write(yaml.dump(save_state))
         sys.stdout.write("Saved\n")
 
-    def do_list(self, arg):
+    def do_list(self, arg: Optional[str]) -> None:
         """List available objects, facts or hyps
 
         Syntax: list objects|facts|hyps
         """
         if arg == 'objects':
-            output = listObjects(self.gm)
+            output: str = listObjects(self.gm)
         elif arg == 'facts':
             output = listFacts(self.gm)
         elif arg == 'hyps':
@@ -258,11 +270,11 @@ class BaseCmd(cmd.Cmd):
 
         sys.stdout.write(output)
 
-    def do_back(self, arg):
+    def do_back(self, arg: Optional[str]) -> bool:
         """Return to previous level"""
         if len(self.depthList) == 0:
             sys.stdout.write("Already at root\n")
-            return
+            return False
 
         if arg is not None and len(arg) > 0:
             if arg == 'root':
@@ -272,12 +284,12 @@ class BaseCmd(cmd.Cmd):
                     self.backTo = int(arg)
                 except Exception:
                     sys.stdout.write("Unexpected value to back\n")
-                    return
+                    return False
 
         return True
 
-    def _parse_bc(self):
-        bc = list()
+    def _parse_bc(self) -> List[Tuple[int, str, int]]:
+        bc: List[Tuple[int, str, int]] = list()
         for i, item in enumerate(self.depthList):
             if isinstance(item, FileObject):
                 t = 'object'
@@ -293,19 +305,19 @@ class BaseCmd(cmd.Cmd):
 
         return bc
 
-    def do_bc(self, arg):
+    def do_bc(self, arg) -> None:
         """Print out breadcrumbs"""
 
         if len(self.depthList) == 0:
             sys.stdout.write("At root\n")
             return
 
-        bc = self._parse_bc()
+        bc: List[Tuple[int, str, int]] = self._parse_bc()
 
         for (bcid, bctype, itemid) in bc:
             sys.stdout.write("%d - %s %d\n" % (bcid, bctype, itemid))
 
-    def checkBackTo(self, downBackTo):
+    def checkBackTo(self, downBackTo: Union[int, bool]) -> bool:
         if downBackTo is True:
             self.backTo = True
             return True
@@ -317,13 +329,13 @@ class BaseCmd(cmd.Cmd):
                 return True
         return False
 
-    def _find_object(self, obj_id):
+    def _find_object(self, obj_id: str) -> FileObject:
         try:
             objID = int(obj_id)
         except (ValueError, TypeError):
             raise
 
-        inst = None
+        inst: Optional[FileObject] = None
         for obj in self.gm.objects:
             if obj.id == objID:
                 inst = obj
@@ -334,31 +346,34 @@ class BaseCmd(cmd.Cmd):
 
         return inst
 
-    def do_object(self, arg):
+    def do_object(self, arg: Optional[str]) -> bool:
         """Explore object with a given id"""
 
         if arg is None:
             sys.stdout.write("Object id required\n")
-            return
+            return False
 
         try:
-            inst = self._find_object(arg)
+            inst: FileObject = self._find_object(arg)
         except (ValueError, TypeError):
             sys.stdout.write("Object id must be an integer value")
         except NotFoundError as e:
             sys.stdout.write("%s\n" % (str(e)))
         else:
-            objcmd = ObjectCmd(self.gm, inst, copy.deepcopy(self.depthList))
+            objcmd: ObjectCmd = ObjectCmd(self.gm, inst,
+                                          copy.deepcopy(self.depthList))
             objcmd.cmdloop()
             return self.checkBackTo(objcmd.backTo)
 
-    def _find_fact(self, fact_id):
+        return False
+
+    def _find_fact(self, fact_id: str) -> Fact:
         try:
-            factID = int(fact_id)
+            factID: int = int(fact_id)
         except (ValueError, TypeError):
             raise
 
-        inst = None
+        inst: Optional[Fact] = None
         for (factType, factColumns) in self.gm.facts.items():
             for fact in factColumns:
                 if fact.id == factID:
@@ -370,31 +385,34 @@ class BaseCmd(cmd.Cmd):
 
         return inst
 
-    def do_fact(self, arg):
+    def do_fact(self, arg: Optional[str]) -> bool:
         """Explore fact with a given id"""
 
         if arg is None:
             sys.stdout.write("Fact id required\n")
-            return
+            return False
 
         try:
-            inst = self._find_fact(arg)
+            inst: Fact = self._find_fact(arg)
         except (ValueError, TypeError):
             sys.stdout.write("Fact id must be integer value")
         except NotFoundError as e:
             sys.stdout.write("%s\n" % (str(e)))
         else:
-            factcmd = FactCmd(self.gm, inst, copy.deepcopy(self.depthList))
+            factcmd: FactCmd = FactCmd(self.gm, inst,
+                                       copy.deepcopy(self.depthList))
             factcmd.cmdloop()
             return self.checkBackTo(factcmd.backTo)
 
-    def _find_hyp(self, hyp_id):
+        return False
+
+    def _find_hyp(self, hyp_id: str) -> Fact:
         try:
             hypID = int(hyp_id)
         except (ValueError, TypeError):
             raise
 
-        inst = None
+        inst: Optional[Fact] = None
         for (hypType, hypColumns) in self.gm.hyps.items():
             for hyp in hypColumns:
                 if hyp.id == hypID:
@@ -406,25 +424,28 @@ class BaseCmd(cmd.Cmd):
 
         return inst
 
-    def do_hyp(self, arg):
+    def do_hyp(self, arg: Optional[str]) -> bool:
         """Explore hyp with a given id"""
 
         if arg is None:
             sys.stdout.write("Hyp id required\n")
-            return
+            return False
 
         try:
-            inst = self._find_hyp(arg)
+            inst: Fact = self._find_hyp(arg)
         except (ValueError, TypeError):
             sys.stdout.write("Hyp id must be integer value")
         except NotFoundError as e:
             sys.stdout.write("%s\n" % (str(e)))
         else:
-            hypcmd = HypCmd(self.gm, inst, copy.deepcopy(self.depthList))
+            hypcmd: HypCmd = HypCmd(self.gm, inst,
+                                    copy.deepcopy(self.depthList))
             hypcmd.cmdloop()
             return self.checkBackTo(hypcmd.backTo)
 
-    def run(self):
+        return False
+
+    def run(self) -> None:
         while 1:
             try:
                 self.cmdloop()
@@ -435,191 +456,206 @@ class BaseCmd(cmd.Cmd):
 
 
 class ShellCmd(BaseCmd):
-    def __init__(self, gameMaster):
+    def __init__(self, gameMaster: GameMaster) -> None:
         super().__init__(gameMaster)
-        self.prompt = "d20 > "
+        self.prompt: str = "d20 > "
 
-    def do_object(self, arg):
+    def do_object(self, arg: Optional[str]):
         """Explore an object with a given id"""
         super().do_object(arg)
 
-    def do_fact(self, arg):
+    def do_fact(self, arg: Optional[str]):
         """Explore a fact with a given id"""
         super().do_fact(arg)
 
-    def do_hyp(self, arg):
+    def do_hyp(self, arg: Optional[str]):
         """Explore a hyp with a given id"""
         super().do_hyp(arg)
 
 
 class ObjectCmd(BaseCmd):
-    def __init__(self, gameMaster, obj, depthList=None):
+    def __init__(self, gameMaster: GameMaster, obj: FileObject,
+                 depthList: Optional[List] = None) -> None:
         super().__init__(gameMaster, depthList)
         # Append object to depth list
         self.depthList.append(obj)
-        self.prompt = "object %d > " % (obj.id)
-        self.obj = obj
+        self.prompt: str = "object %d > " % (obj.id)
+        self.obj: FileObject = obj
 
-    def write_list(self, out):
+    def write_list(self, out: str) -> None:
         sys.stdout.write("\nObject %d:\n" % (self.obj.id))
         sys.stdout.write("--------------\n")
         sys.stdout.write(out)
         sys.stdout.write("--------------\n\n")
 
-    def do_metadata(self, arg):
+    def do_metadata(self, arg) -> None:
         """Print metadata about object"""
         out = prettyList(self.obj.metadata)
         self.write_list(out)
 
-    def do_info(self, arg):
+    def do_info(self, arg) -> None:
         """Print basic info about object"""
-        created = tsTodt(self.obj._created_)
-        out = prettyList({'id': self.obj.id,
-                          'creator': self.obj._creator_,
-                          'created': created})
+        created: str = tsTodt(self.obj._created_)
+        out: str = prettyList({'id': self.obj.id,
+                               'creator': self.obj._creator_,
+                               'created': created})
         self.write_list(out)
 
-    def do_parents(self, arg):
+    def do_parents(self, arg) -> None:
         """Print out parents of this object"""
 
-        parentObjects = createObjectsList('parent', self.gm, self.obj)
+        parentObjects: str = createObjectsList('parent', self.gm, self.obj)
         sys.stdout.write("Parent Objects:\n%s\n" % (parentObjects))
 
-        parentFacts = createFactsList('parent', self.gm, self.obj)
+        parentFacts: str = createFactsList('parent', self.gm, self.obj)
         sys.stdout.write("Parent Facts:\n%s\n" % (parentFacts))
 
-        parentHyps = createHypsList('parent', self.gm, self.obj)
+        parentHyps: str = createHypsList('parent', self.gm, self.obj)
         sys.stdout.write("Parent Hyps: \n%s\n" % (parentHyps))
 
-    def do_children(self, args):
+    def do_children(self, args) -> None:
         """Print out children of this object"""
 
-        childObjects = createObjectsList('child', self.gm, self.obj)
+        childObjects: str = createObjectsList('child', self.gm, self.obj)
         sys.stdout.write("Child Objects:\n%s\n" % (childObjects))
 
-        childFacts = createFactsList('child', self.gm, self.obj)
+        childFacts: str = createFactsList('child', self.gm, self.obj)
         sys.stdout.write("Child Facts:\n%s\n" % (childFacts))
 
-        childHyps = createHypsList('child', self.gm, self.obj)
+        childHyps: str = createHypsList('child', self.gm, self.obj)
         sys.stdout.write("Child Hyps:\n%s\n" % (childHyps))
 
-    def _find_items(self, data, children):
-        itemMetadata = collections.namedtuple('itemMetadata',
-                                              ['id',
-                                               'type',
-                                               'creator',
-                                               'created'])
-        rows = []
+    def _find_items(self, data: FactTable, children: List[int]) -> List[Tuple]:
+        itemMetadata: Tuple = collections.namedtuple('itemMetadata',
+                                                     ['id',
+                                                      'type',
+                                                      'creator',
+                                                      'created'])
+        rows: List[Tuple] = []
         for (itemType, itemColumn) in data.items():
             for item in itemColumn:
                 if item.id in children:
-                    created = tsTodt(item.created)
-                    md = itemMetadata(str(item.id), itemType,
-                                      item.creator, created)
+                    created: str = tsTodt(item.created)
+                    md: Tuple = itemMetadata(str(item.id), itemType,
+                                             item.creator, created)
                     rows.append(md)
 
         return rows
 
-    def _do_items(self, _type, data, children):
+    def _do_items(self, _type: str,
+                  data: FactTable,
+                  children: List[int]
+                  ) -> None:
         """Print items related to this object"""
-        rows = self._find_items(data, children)
+        rows: List[Tuple] = self._find_items(data, children)
 
         if len(rows) > 0:
-            out = prettyTable(rows)
+            out: str = prettyTable(rows)
             sys.stdout.write("\n%s\n" % (out))
         else:
             sys.stdout.write('No %s associated with object\n' % (_type))
 
-    def do_facts(self, arg):
+    def do_facts(self, arg) -> None:
         """Print facts related to this object"""
         self._do_items("facts", self.gm.facts, self.obj.childFacts)
 
-    def do_hyps(self, arg):
+    def do_hyps(self, arg) -> None:
         """Print hyps related to this object"""
         self._do_items("hyps", self.gm.hyps, self.obj.childHyps)
 
 
 class FactHypBaseCmd(BaseCmd):
-    def __init__(self, _type, gameMaster, item, depthList=None):
+    def __init__(self, _type: str, gameMaster: GameMaster, item: Fact,
+                 depthList: Optional[List] = None) -> None:
         super().__init__(gameMaster, depthList)
-        # Append item to depth list
-        self._type = _type
-        self.depthList.append(item)
-        self.prompt = "%s %d > " % (self._type, item.id)
-        self.item = item
+        if item.id is not None:
+            # Append item to depth list
+            self._type: str = _type
+            self.depthList.append(item)
+            self.prompt: str = "%s %d > " % (self._type, item.id)
+            self.item: Fact = item
+        else:
+            sys.stdout.write("Something went wrong, Fact had no ID\n")
 
-    def write_list(self, out):
-        sys.stdout.write("\n%s %d:\n" % (self._type.capitalize(),
-                                         self.item.id))
-        sys.stdout.write("--------------\n")
-        sys.stdout.write(out)
-        sys.stdout.write("--------------\n\n")
+    def write_list(self, out: str) -> None:
+        if self.item.id is not None:
+            sys.stdout.write("\n%s %d:\n" % (self._type.capitalize(),
+                                             self.item.id))
+            sys.stdout.write("--------------\n")
+            sys.stdout.write(out)
+            sys.stdout.write("--------------\n\n")
+        else:
+            sys.stdout.write("Something went wrong, Fact had no ID\n")
 
-    def _find_info(self):
-        created = tsTodt(self.item.created)
-        item_info = collections.OrderedDict([
+    def _find_info(self) -> OrderedDict:
+        created: str = tsTodt(self.item.created)
+        item_info: OrderedDict = collections.OrderedDict([
                         ('id', self.item.id),
                         ('type', self.item._type),
                         ('creator', self.item.creator),
                         ('created', created)])
 
-        for fieldName in self.item._fields_:
-            descriptor = getattr(self.item, '_%s__' % fieldName)
-            if (isinstance(descriptor, SimpleField) or
-                    isinstance(descriptor, NumericalField) or
-                    isinstance(descriptor, StrOrBytesField)):
-                try:
-                    item_info[fieldName] = descriptor.getShell()
-                except AttributeError:
-                    item_info[fieldName] = None
-            else:
-                if 'fields' not in item_info:
-                    item_info['fields'] = list()
-                item_info['fields'].append(fieldName)
+        if self.item._fields_:
+            for fieldName in self.item._fields_:
+                descriptor = getattr(self.item, '_%s__' % fieldName)
+                if (isinstance(descriptor, SimpleField) or
+                        isinstance(descriptor, NumericalField) or
+                        isinstance(descriptor, StrOrBytesField)):
+                    try:
+                        item_info[fieldName] = descriptor.getShell()
+                    except AttributeError:
+                        item_info[fieldName] = None
+                else:
+                    if 'fields' not in item_info:
+                        item_info['fields'] = list()
+                    item_info['fields'].append(fieldName)
 
-        return item_info
+            return item_info
 
-    def do_info(self, arg):
+        else:
+            raise Exception
+
+    def do_info(self, arg) -> None:
         """Print info about item"""
-        item_info = self._find_info()
-        out = prettyList(item_info)
+        item_info: OrderedDict = self._find_info()
+        out: str = prettyList(item_info)
         self.write_list(out)
 
-    def do_parents(self, arg):
+    def do_parents(self, arg) -> None:
         """Print out parents of this item"""
 
-        parentObjects = createObjectsList('parent', self.gm, self.item)
+        parentObjects: str = createObjectsList('parent', self.gm, self.item)
         sys.stdout.write("Parent Objects:\n%s\n" % (parentObjects))
 
-        parentFacts = createFactsList('parent', self.gm, self.item)
+        parentFacts: str = createFactsList('parent', self.gm, self.item)
         sys.stdout.write("Parent Facts:\n%s\n" % (parentFacts))
 
-        parentHyps = createHypsList('parent', self.gm, self.item)
+        parentHyps: str = createHypsList('parent', self.gm, self.item)
         sys.stdout.write("Parent Hyps:\n%s\n" % (parentHyps))
 
-    def do_children(self, args):
+    def do_children(self, args) -> None:
         """Print out children of this item"""
 
-        childObjects = createObjectsList('child', self.gm, self.item)
+        childObjects: str = createObjectsList('child', self.gm, self.item)
         sys.stdout.write("Child Objects:\n%s\n" % (childObjects))
 
-        childFacts = createFactsList('child', self.gm, self.item)
+        childFacts: str = createFactsList('child', self.gm, self.item)
         sys.stdout.write("Child Facts:\n%s\n" % (childFacts))
 
-        childHyps = createHypsList('child', self.gm, self.item)
+        childHyps: str = createHypsList('child', self.gm, self.item)
         sys.stdout.write("Child Hyps:\n%s\n" % (childHyps))
 
-    def do_fields(self, arg):
+    def do_fields(self, arg) -> None:
         """Print out the names of available fields"""
-        if len(self.item._fields_) > 0:
+        if self.item._fields_ and len(self.item._fields_) > 0:
             for name in self.item._fields_:
                 sys.stdout.write("%s\n" % (name))
         else:
             sys.stdout.write("No fields available\n")
 
-    def do_get(self, arg):
+    def do_get(self, arg: Optional[str]) -> None:
         """Print out value of a given field"""
-        if arg not in self.item._fields_:
+        if self.item._fields_ is None or arg not in self.item._fields_:
             sys.stdout.write("No field by that name\n")
             return
 
@@ -633,17 +669,21 @@ class FactHypBaseCmd(BaseCmd):
 
 
 class FactCmd(FactHypBaseCmd):
-    def __init__(self, gameMaster, fact, depthList=None):
+    def __init__(self, gameMaster: GameMaster, fact: Fact,
+                 depthList: Optional[List] = None) -> None:
         super().__init__("fact", gameMaster, fact, depthList)
 
 
 class HypCmd(FactHypBaseCmd):
-    def __init__(self, gameMaster, fact, depthList=None):
+    def __init__(self, gameMaster: GameMaster, fact: Fact,
+                 depthList: Optional[List] = None) -> None:
         super().__init__("hyp", gameMaster, fact, depthList)
 
-    def do_promote(self, arg):
+    def do_promote(self, arg: Optional[str]) -> bool:
         """Promote a hyp to a fact"""
-        if askPrompt():
+        if askPrompt() and self.item.id is not None:
             promoted = self.gm.promoteHyp(self.item.id)
-            sys.stdout.write("Hyp Promoted, fact id: %d\n" % (promoted.id))
+            if promoted.id is not None:
+                sys.stdout.write("Hyp Promoted, fact id: %d\n" % (promoted.id))
             return self.do_back(arg)
+        return False

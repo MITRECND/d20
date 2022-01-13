@@ -1,27 +1,33 @@
 import os
+from typing import TYPE_CHECKING, List, Dict, Set, Type, Optional
 
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 from d20.Manual.Registration import BackStoryRegistrationForm
 from d20.Manual.Utils import loadExtras
+from d20.Manual.Facts import Fact, getFactClass
+from d20.Manual.Config import Configuration, EntityConfiguration
 from d20.version import GAME_ENGINE_VERSION
-from d20.Manual.Facts import getFactClass
 
-from typing import Set, Dict
+
+if TYPE_CHECKING:
+    from d20.Manual.Templates import BackStoryTemplate
+
 
 LOADED: Set = set()
-STORIES: Dict = dict()
-LOGGER = logging.getLogger(__name__)
+STORIES: Dict[str, 'BackStory'] = dict()
+LOGGER: Logger = logging.getLogger(__name__)
 
 
 class BackStory:
-    def __init__(self, name, cls, registration):
-        self.name = name
-        self.cls = cls
-        self.registration = registration
-        self.config = None
+    def __init__(self, name: str, cls: Type['BackStoryTemplate'],
+                 registration: BackStoryRegistrationForm) -> None:
+        self.name: str = name
+        self.cls: Type['BackStoryTemplate'] = cls
+        self.registration: BackStoryRegistrationForm = registration
+        self.config: Optional[EntityConfiguration] = None
 
 
-def resolveBackStoryFacts(backstory_facts):
+def resolveBackStoryFacts(backstory_facts: Dict) -> List[Fact]:
     """Takes list of dicts that are then turned into fact class instances
 
     Arguments:
@@ -32,25 +38,26 @@ def resolveBackStoryFacts(backstory_facts):
         backstory_facts['facts']
     except KeyError:
         LOGGER.error("Provide backstory facts are malformed")
-        return
+        return []
 
-    facts = list()
+    facts: List[Fact] = list()
     for fact_template in backstory_facts['facts']:
         try:
-            fact_class = getFactClass(fact_template['name'])
+            fact_class: Type[Fact] = getFactClass(fact_template['name'])
             LOGGER.debug(fact_class)
         except Exception:
             LOGGER.exception("Unknown fact class %s" % (fact_template['name']))
             continue
 
         arguments = fact_template['arguments']
-        fact = fact_class(**arguments)
+        fact: Fact = fact_class(**arguments)
         facts.append(fact)
 
     return facts
 
 
-def verifyBackStories(extra_backstories, config):
+def verifyBackStories(extra_backstories: List[str],
+                      config: Configuration) -> List[BackStory]:
     """Load and verify BackStories
 
         This function takes backstories found on-disk and loads them
@@ -81,15 +88,19 @@ def verifyBackStories(extra_backstories, config):
     return list(STORIES.values())
 
 
-def loadBackStory(backstory_class, **kwargs):
-    reg = BackStoryRegistrationForm(**kwargs)
-    ev = GAME_ENGINE_VERSION
-    if reg.engine_version > ev:
+def loadBackStory(backstory_class: Type['BackStoryTemplate'],
+                  **kwargs: str) -> None:
+    reg: BackStoryRegistrationForm = BackStoryRegistrationForm(**kwargs)
+    ev: str = GAME_ENGINE_VERSION
+    if reg.engine_version is not None and reg.engine_version > ev:
         raise ValueError("BackStory %s expects version %s or newer"
                          % (reg.name, reg.engine_version))
 
+    if reg.name is None:
+        raise ValueError("NPC does not have a name")
+
     global STORIES
-    clsname = backstory_class.__qualname__
+    clsname: str = backstory_class.__qualname__
     if clsname in STORIES:
         LOGGER.warning("BackStory with class name %s already registered"
                        % (clsname))
@@ -105,9 +116,9 @@ def loadBackStory(backstory_class, **kwargs):
     STORIES[clsname] = BackStory(reg.name, backstory_class, reg)
 
 
-def loadBackStories(extra_backstories):
+def loadBackStories(extra_backstories: List[str]) -> None:
     # Get this files directory
-    paths = [os.path.dirname(os.path.abspath(__file__))]
+    paths: List[str] = [os.path.dirname(os.path.abspath(__file__))]
     paths.extend(extra_backstories)
 
     loadExtras(paths, LOADED)

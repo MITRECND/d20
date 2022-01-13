@@ -1,19 +1,21 @@
+import json
+import binascii
+from typing import Dict, Type, Optional
+
 from d20.Manual.Options import Arguments
 from d20.Manual.Templates import (ScreenTemplate,
                                   registerScreen)
-from d20.Manual.Logger import logging
+from d20.Manual.Logger import logging, Logger
 
-import json
-import binascii
 
-LOGGER = logging.getLogger(__name__)
+LOGGER: Logger = logging.getLogger(__name__)
 
 
 class BytesEncoder(json.JSONEncoder):
-    def default(self, obj):
+    def default(self, obj: bytes):
         if isinstance(obj, bytes):
             try:
-                outstring = str(obj, 'utf-8')
+                outstring: str = str(obj, 'utf-8')
                 if not outstring.isprintable():
                     raise UnicodeError(
                         'utf-8',
@@ -36,7 +38,7 @@ class BytesEncoder(json.JSONEncoder):
     )
 )
 class JSONScreen(ScreenTemplate):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: str) -> None:
         super().__init__(**kwargs)
         self.exclusions = self.options.get("exclude", [])
         # Parent object inits
@@ -45,48 +47,54 @@ class JSONScreen(ScreenTemplate):
         # objects - list of objects
         # options - any options passed from config
 
-    def filter(self):
-        gameData = {'facts': dict(),
-                    'hyps': dict()}
+    def filter(self) -> Dict:
+        gameData: Dict = {'facts': dict(),
+                          'hyps': dict()}
 
         if not self.options.get('exclude_objects', False):
             gameData['objects'] = list()
-            for obj in self.objects:
-                objdata = obj._coreInfo
-                objdata.update(self.formatData(obj._creationInfo))
-                gameData['objects'].append(objdata)
+            if self.objects is not None:
+                for obj in self.objects:
+                    objdata: Dict[str, str] = obj._coreInfo
+                    objdata.update(self.formatData(obj._creationInfo))
+                    gameData['objects'].append(objdata)
 
-        for (_type, column) in self.facts.items():
-            if any(e in _type for e in self.exclusions):
-                continue
-            gameData['facts'][_type] = list()
-            for fact in column:
-                fact_info = fact._nonCoreFacts
-                if self.options.get('include_core_facts', False):
-                    fact_info.update(self.formatData(fact._coreFacts))
-                gameData['facts'][_type].append(fact_info)
+        if self.facts is not None and self.hyps is not None:
+            for (_type, column) in self.facts.items():
+                if any(e in _type for e in self.exclusions):
+                    continue
+                gameData['facts'][_type] = list()
+                for fact in column:
+                    fact_info: Dict = fact._nonCoreFacts
+                    if self.options.get('include_core_facts', False):
+                        fact_info.update(self.formatData(fact._coreFacts))
+                    gameData['facts'][_type].append(fact_info)
 
-        for (_type, column) in self.hyps.items():
-            if any(e in _type for e in self.exclusions):
-                continue
-            gameData['hyps'][_type] = list()
-            for hyp in column:
-                hyp_info = hyp._nonCoreFacts
-                if self.options.get('include_core_facts', False):
-                    hyp_info.update(self.formatData(hyp._coreFacts))
-                gameData['hyps'][_type].append(hyp_info)
+            for (_type, column) in self.hyps.items():
+                if any(e in _type for e in self.exclusions):
+                    continue
+                gameData['hyps'][_type] = list()
+                for hyp in column:
+                    hyp_info: Dict = hyp._nonCoreFacts
+                    if self.options.get('include_core_facts', False):
+                        hyp_info.update(self.formatData(hyp._coreFacts))
+                    gameData['hyps'][_type].append(hyp_info)
 
         return gameData
 
-    def present(self):
-        cls = BytesEncoder
+    def present(self) -> str:
+        cls: Optional[Type[BytesEncoder]]
         if not self.options.get('convert_bytes', True):
             cls = None
+        else:
+            cls = BytesEncoder
 
         try:
             return json.dumps(self.filter(), cls=cls)
         except Exception:
             LOGGER.exception("Error attempting to JSON serialize game data")
 
-    def formatData(self, data):
+        return ""
+
+    def formatData(self, data: Dict) -> Dict:
         return {key.strip('_'): value for (key, value) in data.items()}

@@ -1,12 +1,15 @@
-import pkg_resources
 from packaging import version as __version
 from collections.abc import Iterable
+from typing import Optional, List, Dict, Set
+
+import pkg_resources
+
 from d20.Manual.Facts import (isFactGroup,
                               resolveFacts)
 from d20.Manual.Options import Arguments
 
 
-def _test_version_string(version):
+def _test_version_string(version: str) -> str:
     try:
         version_test = pkg_resources.parse_version(version)
         if isinstance(version_test, __version.LegacyVersion):
@@ -23,20 +26,20 @@ class RegistrationForm:
         This class organizes player/npc metadata including what facts a
         player is interested in
     """
-    def __init__(self, *args, **kwargs):
-        self.name = None
-        self.description = None
-        self.creator = None
-        self.version = None
-        self.engine_version = None
-        self.options = Arguments()
-        self.interests = {'facts': set(),
-                          'hyps': set()}
-        self.facts_consumed = set()
-        self.facts_generated = set()
-        self.hyps_consumed = set()
-        self.hyps_generated = set()
-        self.help = None
+    def __init__(self, *args, **kwargs) -> None:
+        self.name: Optional[str] = None
+        self.description: Optional[str] = None
+        self.creator: Optional[str] = None
+        self.version: Optional[str] = None
+        self.engine_version: Optional[str] = None
+        self.options: Arguments = Arguments()
+        self.interests: Dict[str, Set] = {'facts': set(),
+                                          'hyps': set()}
+        self.facts_consumed: Set = set()
+        self.facts_generated: Set = set()
+        self.hyps_consumed: Set = set()
+        self.hyps_generated: Set = set()
+        self.help: Optional[str] = None
 
         for (key, val) in kwargs.items():
             if key == "name":
@@ -101,37 +104,37 @@ class RegistrationForm:
         if self.engine_version is None:
             raise AttributeError("Player must define supported engine version")
 
-    def addFactInterests(self, interests):
+    def addFactInterests(self, interests: Iterable) -> None:
         for interest in resolveFacts(interests):
             self.interests['facts'].add(interest)
             self.facts_consumed.add(interest)
 
-    def addHypInterests(self, interests):
+    def addHypInterests(self, interests: Iterable) -> None:
         for interest in resolveFacts(interests):
             self.interests['hyps'].add(interest)
             self.hyps_consumed.add(interest)
 
-    def addInterests(self, interests):
+    def addInterests(self, interests: Dict) -> None:
         self.addFactInterests(interests['facts'])
         self.addHypInterests(interests['hyps'])
 
     @property
-    def factInterests(self):
+    def factInterests(self) -> Set:
         return self.interests['facts']
 
     @property
-    def hypInterests(self):
+    def hypInterests(self) -> Set:
         return self.interests['hyps']
 
-    def save(self):
+    def save(self) -> Dict:
         # TODO FIXME add options?
-        data = {'name': self.name,
-                'description': self.description,
-                'creator': self.creator,
-                'version': str(self.version),
-                'engine_version': str(self.engine_version),
-                'interests': self.interests,
-                'help': self.help}
+        data: Dict = {'name': self.name,
+                      'description': self.description,
+                      'creator': self.creator,
+                      'version': str(self.version),
+                      'engine_version': str(self.engine_version),
+                      'interests': self.interests,
+                      'help': self.help}
         return data
 
 
@@ -140,11 +143,11 @@ class ScreenRegistrationForm:
 
         Provides organization of screen metadata
     """
-    def __init__(self, *args, **kwargs):
-        self.name = None
-        self.version = _test_version_string("0.1")
-        self.engine_version = _test_version_string("0.1")
-        self.options = Arguments()
+    def __init__(self, *args, **kwargs) -> None:
+        self.name: Optional[str] = None
+        self.version: str = _test_version_string("0.1")
+        self.engine_version: str = _test_version_string("0.1")
+        self.options: Arguments = Arguments()
 
         for (key, val) in kwargs.items():
             if key == "name":
@@ -178,17 +181,17 @@ class BackStoryRegistrationForm:
         it can work with
     """
     def __init__(self, *args, **kwargs):
-        self.name = None
-        self.description = None
-        self.creator = None
-        self.version = None
-        self.engine_version = None
-        self.category = None
-        self.default_weight = 1
-        self._interests = set()
-        self.interests
-        self.help = None
-        self.options = Arguments()
+        self.name: Optional[str] = None
+        self.description: Optional[str] = None
+        self.creator: Optional[str] = None
+        self.version: Optional[str] = None
+        self.engine_version: Optional[str] = None
+        self.category: str
+        self.default_weight: int = 1
+        self._interests: Set = set()
+        self.interests: Iterable
+        self.help: Optional[str] = None
+        self.options: Arguments = Arguments()
 
         for (key, val) in kwargs.items():
             if key == "name":
@@ -243,20 +246,20 @@ class BackStoryRegistrationForm:
             raise AttributeError(
                 "BackStory must define supported engine version")
 
-    def addFactInterests(self, interests):
+    def addFactInterests(self, interests: List[str]) -> None:
         for interest in interests:
             self._interests.add(interest)
 
     @property
-    def interests(self):
+    def interests(self) -> Set:
         return self._interests
 
-    def save(self):
-        data = {'name': self.name,
-                'description': self.description,
-                'creator': self.creator,
-                'version': str(self.version),
-                'engine_version': str(self.engine_version),
-                'interests': self.interests,
-                'help': self.help}
+    def save(self) -> Dict:
+        data: Dict = {'name': self.name,
+                      'description': self.description,
+                      'creator': self.creator,
+                      'version': str(self.version),
+                      'engine_version': str(self.engine_version),
+                      'interests': self.interests,
+                      'help': self.help}
         return data
