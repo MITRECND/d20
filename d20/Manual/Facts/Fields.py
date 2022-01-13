@@ -1,7 +1,8 @@
 from collections.abc import Iterable
 from inspect import Parameter
-
 from typing import List, Optional, Union, TYPE_CHECKING
+
+
 if TYPE_CHECKING:
     from d20.Manual.Facts import Fact
 

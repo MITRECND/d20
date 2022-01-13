@@ -7,6 +7,7 @@ import yaml
 import os.path
 from builtins import input
 from texttable import Texttable
+from typing import Optional, Dict, OrderedDict, Tuple, Union, List
 
 from d20.Manual.Exceptions import NotFoundError
 from d20.Manual.Facts import Fact
@@ -15,8 +16,6 @@ from d20.Manual.Facts.Fields import (SimpleField,
                                      StrOrBytesField)
 from d20.Manual.BattleMap import FactTable, FileObject
 from d20.Manual.GameMaster import GameMaster
-
-from typing import Optional, Dict, OrderedDict, Tuple, Union, List
 
 
 def tsTodt(input: float) -> str:

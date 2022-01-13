@@ -1,6 +1,5 @@
 import logging as origLogging
 import sys
-
 from typing import Optional, Set
 
 

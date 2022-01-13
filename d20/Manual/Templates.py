@@ -1,11 +1,11 @@
+from typing import Optional, Dict, List, Type, Callable
+
 from d20.Players import loadPlayer
 from d20.NPCS import loadNPC
 from d20.Screens import loadScreen
 from d20.BackStories import loadBackStory
 from d20.Manual.Logger import logging, Logger
 from d20.Manual.Console import PlayerConsole, NPCConsole, BackStoryConsole
-
-from typing import Optional, Dict, List, Type, Callable
 
 
 LOGGER: Logger = logging.getLogger(__name__)

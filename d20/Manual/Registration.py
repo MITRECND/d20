@@ -1,11 +1,12 @@
-import pkg_resources
 from packaging import version as __version
 from collections.abc import Iterable
+from typing import Optional, List, Dict, Set
+
+import pkg_resources
+
 from d20.Manual.Facts import (isFactGroup,
                               resolveFacts)
 from d20.Manual.Options import Arguments
-
-from typing import Optional, List, Dict, Set
 
 
 def _test_version_string(version: str) -> str:

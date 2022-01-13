@@ -1,11 +1,10 @@
 import sys
 import os
+from typing import Callable, Dict, List, Optional, Type
+
 from d20.Manual.Config import Configuration
-
-from d20.Manual.Options import Arguments
 from d20.Manual.Logger import logging
-
-from typing import Callable, Dict, Type, Optional, List
+from d20.Manual.Options import Arguments
 
 
 LOGGER = logging.getLogger(__name__)

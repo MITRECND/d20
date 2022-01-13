@@ -1,27 +1,26 @@
-from io import BytesIO
-import os
 import copy
 import base64
-import time
 import hashlib
+import time
 import threading
+import os
 import pathlib
 import re
 import sys
+from io import BytesIO
+from typing import (Dict, ItemsView, Iterator, List,
+                    Match, Optional, Set, Type,
+                    TypeVar, Union, ValuesView)
 
 from d20.Manual.Exceptions import (DuplicateObjectError, NotFoundError)
-from d20.Manual.Facts import (Fact, RegisteredFacts, loadFact)
-
+from d20.Manual.Facts import (Fact, loadFact, RegisteredFacts)
 from d20.Manual.Temporary import (
     TemporaryObjectOnDisk,
     TemporaryObjectStream
 )
 
-from typing import (ItemsView, List, Dict, Type,
-                    Optional, Set, Union, Match,
-                    Iterator, ValuesView, TypeVar)
-FactType = TypeVar('FactType', bound='FactTable')
 
+FactType = TypeVar('FactType', bound='FactTable')
 
 # Fact and Hypothesis 'table' is organized using a python dict
 # The dict pairs up a fact type from the RegisteredFacts

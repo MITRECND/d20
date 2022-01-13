@@ -2,11 +2,10 @@ import os
 import tempfile
 import io
 import shutil
+from typing import Optional, Union
 
 from d20.Manual.Logger import logging, Logger
 from d20.Manual.Exceptions import TemporaryDirectoryError
-
-from typing import Optional, Union
 
 
 TEMPORARY_DEFAULT: str = "/tmp/d20"

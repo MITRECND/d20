@@ -4,6 +4,7 @@ import argparse
 import time
 import textwrap
 import yaml
+from typing import List, Dict, Union
 
 from d20.version import GAME_ENGINE_VERSION
 from d20.Manual.Logger import logging, Logger
@@ -17,8 +18,6 @@ from d20.Screens import verifyScreens, Screen
 from d20.Actions import (setupActionLoader, ACTION_INVENTORY)
 from d20.Manual.GameMaster import GameMaster
 from d20.Manual.Options import _empty
-
-from typing import List, Dict, Union
 
 
 LOGGER: 'Logger' = logging.getLogger(__name__)

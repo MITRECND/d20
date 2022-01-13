@@ -1,11 +1,12 @@
+from typing import Union, Optional
+
+import magic
+
 from d20.Manual.BattleMap import FileObject
 from d20.Manual.Templates import (NPCTemplate,
                                   registerNPC)
 from d20.Manual.Facts import (MimeTypeFact,  # type: ignore
                               Fact)
-import magic
-
-from typing import Union, Optional
 
 
 # Process basic information to initially populate fact table

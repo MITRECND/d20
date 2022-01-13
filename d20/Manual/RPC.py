@@ -3,19 +3,12 @@ import queue
 import threading
 from argparse import Namespace
 from enum import Enum
+from typing import (Callable, Optional, Dict, Union, Set,
+                    List, Tuple, Type, Generator)
 
 from d20.Manual.Logger import logging, Logger
 from d20.Manual.Exceptions import StreamTimeoutError, RPCTimeoutError
 
-from typing import (Callable,
-                    Optional,
-                    Dict,
-                    Union,
-                    Set,
-                    List,
-                    Tuple,
-                    Type,
-                    Generator)
 
 LOGGER: Logger = logging.getLogger(__name__)
 
