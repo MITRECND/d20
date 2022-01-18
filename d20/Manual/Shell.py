@@ -6,8 +6,9 @@ import copy
 import yaml
 import os.path
 from builtins import input
+from collections import OrderedDict
 from texttable import Texttable
-from typing import Optional, Dict, OrderedDict, Tuple, Union, List
+from typing import Optional, Dict, Tuple, Union, List
 
 from d20.Manual.Exceptions import NotFoundError
 from d20.Manual.Facts import Fact

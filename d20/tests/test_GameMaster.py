@@ -960,10 +960,8 @@ def testReportRuntime(monkeypatch, caplog):
     gm.players = [mockplayer]
 
     gm._reportRuntime()
-    return_text = "INFO     root:GameMaster.py:598 NPC    'testnpc   ' - " \
-        "runtime  1.0000s\nINFO     root:GameMaster.py:604 Player " \
-        "'testplayer' - runtime  2.0000s\n"
-    assert caplog.text == return_text
+    assert "NPC    'testnpc   ' - runtime  1.0000s" in caplog.text
+    assert "Player 'testplayer' - runtime  2.0000s" in caplog.text
 
 
 def testCheckGameState(monkeypatch):
