@@ -549,7 +549,7 @@ def testRegisterBackStories(monkeypatch, caplog):
     assert gm.backstories == ['Success']
 
     gm = GameMaster(options=args)
-    assert "Unexpected issue creating BackStory" in caplog.text
+    assert "Unable to create BackStory TestBackStory" in caplog.text
 
 
 def testRegisterPlayers(monkeypatch):

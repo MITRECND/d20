@@ -284,8 +284,13 @@ class BackStoryTracker:
             directoryHandler=self.dHandler,
             config=self.backstory.config.common)
 
-        _inst: BackStoryTemplate = self.backstory.cls(
-            console=console, options=self.options)
+        try:
+            _inst: BackStoryTemplate = self.backstory.cls(
+                console=console, options=self.options)
+        except Exception as e:
+            LOGGER.exception(
+                "Unable to create BackStory %s ..." % (self.backstory.name))
+            raise PlayerCreationError(e) from None
 
         if not isinstance(_inst, BackStoryTemplate):
             LOGGER.error(("BackStory {0} is not using the BackStoryTemplate! "
@@ -337,7 +342,7 @@ class PlayerTracker(object):
             rpcServer: RPCServer instance
     """
     def __init__(self, *, id: int, player: Player, rpcServer: RPCServer,
-                 asyncData, **kwargs) -> None:
+                 asyncData: SimpleNamespace, **kwargs) -> None:
         # Process parameters
         self.count: int = 0
         self.dHandler: PlayerDirectoryHandler = PlayerDirectoryHandler(id,
@@ -366,7 +371,7 @@ class PlayerTracker(object):
         self.id: int = id
         self.player: Player = player
         self.rpcServer: RPCServer = rpcServer
-        self.asyncData = asyncData
+        self.asyncData: SimpleNamespace = asyncData
 
         for (name, value) in kwargs.items():
             if name == 'count':

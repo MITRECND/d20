@@ -5,9 +5,8 @@ from collections.abc import Iterable
 from collections import OrderedDict
 from typing import Callable, List, Dict, Optional, Set, Union, Tuple, Type
 
-from inspect import (Parameter, _empty, Signature)
+from inspect import Parameter, Signature
 from .Fields import FactField
-from .Fields import _empty as FieldEmpty
 
 from d20.Manual.Logger import logging, Logger
 from d20.Manual.Utils import loadExtras
@@ -164,8 +163,7 @@ class _FactMeta_(type):
                                       "do not redefine") % (name))
 
             if dct[name].default is not Parameter.empty:
-                default: Union[Parameter, Type[_empty], Type[FieldEmpty]] = \
-                    dct[name].default
+                default = dct[name].default
             elif dct[name].required:
                 default = Parameter.empty
             else:

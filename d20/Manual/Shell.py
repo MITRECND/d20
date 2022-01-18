@@ -682,11 +682,10 @@ class HypCmd(FactHypBaseCmd):
 
     def do_promote(self, arg: Optional[str]) -> bool:
         """Promote a hyp to a fact"""
-        if askPrompt():
-            if self.item.id is not None:
-                promoted = self.gm.promoteHyp(self.item.id)
-                if promoted.id is not None:
-                    sys.stdout.write("Hyp Promoted, fact id: %d\n"
-                                     % (promoted.id))
-                    return self.do_back(arg)
+        if askPrompt() and self.item.id is not None:
+            promoted = self.gm.promoteHyp(self.item.id)
+            if promoted.id is not None:
+                sys.stdout.write("Hyp Promoted, fact id: %d\n"
+                                 % (promoted.id))
+                return self.do_back(arg)
         return False
