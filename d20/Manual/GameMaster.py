@@ -241,8 +241,6 @@ class GameMaster(object):
                     if npc.name == saved_npc['name']:
                         loaded_npc = npc
                         break
-                    else:
-                        print(npc.name == saved_npc['name'])
 
                 if loaded_npc is not None:
                     tracker: NPCTracker = NPCTracker.load(saved_npc,

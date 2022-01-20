@@ -396,7 +396,7 @@ class BaseCmd(cmd.Cmd):
         try:
             inst: Fact = self._find_fact(arg)
         except (ValueError, TypeError):
-            sys.stdout.write("Fact id must be integer value")
+            sys.stdout.write("Fact id must be integer value\n")
         except NotFoundError as e:
             sys.stdout.write("%s\n" % (str(e)))
         else:
