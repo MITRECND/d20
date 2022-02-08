@@ -431,6 +431,24 @@ def testBackStoryFactPathLoad2(monkeypatch):
     monkeypatch.setattr("d20.Manual.GameMaster.resolveBackStoryFacts",
                         mockBSF)
 
+    fact_obj = {
+        'facts': [{
+                  'name': 'BulkAnalyzeFact',
+                  'arguments': {
+                                'directory': '/path/to/files',
+                                'recursive': False,
+                                'enable': True
+                                }},
+                  {
+                  'name': 'VTDownloadFact',
+                  'arguments': {
+                                'vt_api_key': 'your_api_key',
+                                'filehash': 'hash',
+                                'enable': False
+                                }
+                  }]
+                }
+
     tf = tempfile.NamedTemporaryFile(delete=False)
     tf.write(b"""
         facts:
@@ -442,7 +460,7 @@ def testBackStoryFactPathLoad2(monkeypatch):
             - name: VTDownloadFact
               arguments:
                 vt_api_key: your_api_key
-                filehash: hash_to_lookup_and_download_for_analysis
+                filehash: hash
                 enable: False
     """)
 
@@ -451,13 +469,12 @@ def testBackStoryFactPathLoad2(monkeypatch):
     args.backstory_facts_path = tf.name
 
     GameMaster(options=args)
-    mockBSF.assert_called()
+    mockBSF.assert_called_with(fact_obj)
     os.remove(tf.name)
 
 
-def testFileOpenException(monkeypatch):
+def testFileOpenException(monkeypatch, caplog):
     exception_mock = mock.Mock(return_value=Exception)
-    mock1 = mock.Mock()
     tf = tempfile.NamedTemporaryFile(delete=False)
     tf.close()
     args = args_ex
@@ -465,10 +482,10 @@ def testFileOpenException(monkeypatch):
 
     with monkeypatch.context() as m:
         m.setattr('builtins.open', exception_mock)
-        m.setattr('d20.Manual.GameMaster.LOGGER.exception', mock1)
         with pytest.raises(SystemExit):
             GameMaster(options=args)
         os.remove(tf.name)
+        assert "Unable to open file %s" % (tf.name) in caplog.text
     del args.file
 
 

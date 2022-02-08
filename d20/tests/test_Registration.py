@@ -238,7 +238,7 @@ def testRegistrationFormWrongInterest():
             def handleData(self, **kwargs):
                 pass
 
-    assert str(excinfo.value) == "Expected an interable type"
+    assert str(excinfo.value) == "Expected an iterable type"
 
 
 def testRegistrationFormHelp():
@@ -537,7 +537,7 @@ def testBackStoryRegistrationFormNonIterableInterest():
             def handleData(self, **kwargs):
                 pass
 
-    assert str(excinfo.value) == "Expected an interable type"
+    assert str(excinfo.value) == "Expected an iterable type"
 
 
 def testBackStoryRegistrationFormWrongDefaultWeight():

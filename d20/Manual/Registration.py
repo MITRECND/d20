@@ -65,7 +65,7 @@ class RegistrationForm:
                 except AttributeError:
                     # Assume it's a set
                     if not isinstance(val, Iterable):
-                        raise TypeError("Expected an interable type") from None
+                        raise TypeError("Expected an iterable type") from None
                     self.addFactInterests(val)
                 else:
                     self.addInterests(val)
@@ -212,7 +212,7 @@ class BackStoryRegistrationForm:
             elif key == "interests":
                 # Assume it's a set
                 if not isinstance(val, Iterable):
-                    raise TypeError("Expected an interable type") from None
+                    raise TypeError("Expected an iterable type") from None
                 self.addFactInterests(val)
             elif key == "category":
                 if not isinstance(val, str):

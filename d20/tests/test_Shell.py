@@ -493,11 +493,11 @@ def testBaseCmdDoFactError(capsys):
 
     assert not cmd.do_fact([0])
     captured = capsys.readouterr()
-    assert captured.out == "Fact id must be integer value"
+    assert captured.out == "Fact id must be integer value\n"
 
     assert not cmd.do_fact('1.0')
     captured = capsys.readouterr()
-    assert captured.out == "Fact id must be integer value"
+    assert captured.out == "Fact id must be integer value\n"
 
     assert not cmd.do_fact('1')
     captured = capsys.readouterr()
