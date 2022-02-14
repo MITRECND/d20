@@ -433,21 +433,21 @@ def testBackStoryFactPathLoad2(monkeypatch):
 
     fact_obj = {
         'facts': [{
-                  'name': 'BulkAnalyzeFact',
-                  'arguments': {
-                                'directory': '/path/to/files',
-                                'recursive': False,
-                                'enable': True
-                                }},
+            'name': 'BulkAnalyzeFact',
+            'arguments': {
+                        'directory': '/path/to/files',
+                        'recursive': False,
+                        'enable': True
+                        }},
                   {
-                  'name': 'VTDownloadFact',
-                  'arguments': {
-                                'vt_api_key': 'your_api_key',
-                                'filehash': 'hash',
-                                'enable': False
-                                }
+            'name': 'VTDownloadFact',
+            'arguments': {
+                        'vt_api_key': 'your_api_key',
+                        'filehash': 'hash_to_lookup_and_download_for_analysis',
+                        'enable': False
+                        }
                   }]
-                }
+        }
 
     tf = tempfile.NamedTemporaryFile(delete=False)
     tf.write(b"""
@@ -460,7 +460,7 @@ def testBackStoryFactPathLoad2(monkeypatch):
             - name: VTDownloadFact
               arguments:
                 vt_api_key: your_api_key
-                filehash: hash
+                filehash: hash_to_lookup_and_download_for_analysis
                 enable: False
     """)
 
