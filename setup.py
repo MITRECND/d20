@@ -22,7 +22,7 @@ setup(name="d20-framework",
       author="MITRE",
       author_email="",
       url="https://github.com/MITRECND/d20",
-      python_requires=">=3.6",
+      python_requires=">=3.7",
       classifiers=[
           'License :: OSI Approved :: Apache Software License',
           'Programming Language :: Python',
