@@ -1,8 +1,8 @@
 Installation
 ============
 
-D20 is a Python 3.6+ framework and is tested against Python 3.6 - 3.9 for compatibility.
-It is not compatible with Python 2.x or Python 3.5 and older.
+D20 is a Python 3.7+ framework and is tested against Python 3.7 - 3.10 for compatibility.
+It is not compatible with Python 2.x or Python 3.6 and older.
 Please ensure you are running a compatible version of Python.
 
 To install D20 simply, ``pip install`` the project directory

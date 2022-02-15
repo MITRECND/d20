@@ -12,7 +12,7 @@ Getting Started
 ---------------
 
 Every action must be a valid python package.
-If unfamiliar with python packaging, please read python's documentation on `packaging <https://docs.python.org/3.6/tutorial/modules.html#packages>`_ for more information.
+If unfamiliar with python packaging, please read python's documentation on `packaging <https://docs.python.org/3.9/tutorial/modules.html#packages>`_ for more information.
 Note that, D20 actions only support one-level deep packages.
 If your package has nested packages, they will need to be exposed by the highest level packages.
 
