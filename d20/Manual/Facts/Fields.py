@@ -34,14 +34,14 @@ class FactField:
                  *args,
                  required: bool = False,
                  help: Optional[str] = None,
-                 default: Parameter = Parameter.empty,
+                 default=Parameter.empty,
                  allowed_values: Optional[Iterable] = None,
                  **kwargs):
         self.name: Optional[str] = name
         self.required: bool = required
         self.allowed_values: Optional[Iterable] = allowed_values
         self.instance: Optional[Fact] = None
-        self.default: Parameter = default
+        self.default = default
         self.help: Optional[str] = help
 
     def __set_name__(self, owner, name: str) -> None:
@@ -72,7 +72,7 @@ class FactField:
                                  % (self.instance.__class__.__name__,
                                     self.name)) from None
 
-    def __get__(self, instance, owner) -> Union[Parameter, 'FactField']:
+    def __get__(self, instance, owner):
         if instance is None:
             return self
         else:

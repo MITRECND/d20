@@ -6,8 +6,9 @@ import copy
 import yaml
 import os.path
 from builtins import input
+from collections import OrderedDict
 from texttable import Texttable
-from typing import Optional, Dict, OrderedDict, Tuple, Union, List
+from typing import Optional, Dict, Tuple, Union, List
 
 from d20.Manual.Exceptions import NotFoundError
 from d20.Manual.Facts import Fact
@@ -294,7 +295,7 @@ class BaseCmd(cmd.Cmd):
             if isinstance(item, FileObject):
                 t = 'object'
             elif isinstance(item, Fact):
-                if Fact.tainted:
+                if item.tainted:
                     t = 'hyp'
                 else:
                     t = 'fact'
@@ -395,7 +396,7 @@ class BaseCmd(cmd.Cmd):
         try:
             inst: Fact = self._find_fact(arg)
         except (ValueError, TypeError):
-            sys.stdout.write("Fact id must be integer value")
+            sys.stdout.write("Fact id must be integer value\n")
         except NotFoundError as e:
             sys.stdout.write("%s\n" % (str(e)))
         else:
@@ -684,6 +685,7 @@ class HypCmd(FactHypBaseCmd):
         if askPrompt() and self.item.id is not None:
             promoted = self.gm.promoteHyp(self.item.id)
             if promoted.id is not None:
-                sys.stdout.write("Hyp Promoted, fact id: %d\n" % (promoted.id))
-            return self.do_back(arg)
+                sys.stdout.write("Hyp Promoted, fact id: %d\n"
+                                 % (promoted.id))
+                return self.do_back(arg)
         return False

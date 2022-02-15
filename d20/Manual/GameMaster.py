@@ -241,8 +241,6 @@ class GameMaster(object):
                     if npc.name == saved_npc['name']:
                         loaded_npc = npc
                         break
-                    else:
-                        print(npc.name == saved_npc['name'])
 
                 if loaded_npc is not None:
                     tracker: NPCTracker = NPCTracker.load(saved_npc,
@@ -1018,13 +1016,17 @@ class GameMaster(object):
                 msg.entity.isPlayer
                 msg.entity.id
                 object_id = msg.args.object_id
+            else:
+                self.rpc.sendErrorResponse(
+                    msg, reason="args field formatted incorrectly")
+                return
         except AttributeError as e:
             self.rpc.sendErrorResponse(msg, reason=str(e))
             return
 
         try:
             FileObj: FileObject = self.objects[object_id]
-        except KeyError:
+        except IndexError:
             self.rpc.sendErrorResponse(msg, reason="No object by that id")
             return
 

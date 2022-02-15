@@ -5,7 +5,8 @@ from unittest import mock
 from argparse import Namespace
 
 from d20.version import GAME_ENGINE_VERSION
-from d20.Manual.Entry import (main, play, shellmain)
+from d20.Manual.Entry import (main, play, shellmain,
+                              __fix_default)
 from d20.Manual.Config import Configuration
 from d20.tests import wrapOut
 
@@ -77,6 +78,13 @@ class TestEntryMain(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 main()
             self.assertTrue(out.getvalue().startswith("Registered NPCs:"))
+
+        self._createArgs("--list-backstories")
+        with wrapOut() as (out, err):
+            with self.assertRaises(SystemExit):
+                main()
+            self.assertTrue(out.getvalue().startswith(
+                "Registered BackStories:"))
 
         self._createArgs("--list-screens")
         with wrapOut() as (out, err):
@@ -270,3 +278,10 @@ class TestEntryShell(unittest.TestCase):
                 self.assertMultiLineEqual(
                     out.getvalue(), test1shellTestOutput1)
             mock_file.assert_called_with("foobar.save", 'r')
+
+
+def testFixDefault():
+    assert __fix_default(False) == "false"
+    assert __fix_default(True) == "true"
+    assert __fix_default(b"test") == "test"
+    assert __fix_default(1) == "1"
